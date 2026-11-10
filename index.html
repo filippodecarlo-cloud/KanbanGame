@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fattoria LEGO a doppio kanban</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Lilita+One&family=Permanent+Marker&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Layout: lo stabilimento visto dall'alto, flusso da sinistra a destra; i due anelli kanban si leggono dal colore dei cartellini (P rosa, W azzurro) */
+  --table:#e2e6de;
+  --paper:#fbfaf5;
+  --ink:#1c2427;
+  --muted:#56646a;
+  --line:#c9d0c6;
+  --tape:#e7d7a3;
+  --postit:#ffe35a;
+  --accent:#cc2f27;
+  --kp:#d6336c;
+  --kp-bg:#ffd9e5;
+  --kw:#1f78c8;
+  --kw-bg:#d3e8fb;
+  --box:#d9c49a;
+  --good:#2f7d4f;
+  --bad:#b3261e;
+  --warn:#9a6200;
+  --a-sup:#c9a86a;
+  --a-line:#7fb3e6;
+  --a-tr:#9aa5ab;
+  --f-display:"Lilita One","Arial Rounded MT Bold",system-ui,sans-serif;
+  --f-body:"Atkinson Hyperlegible",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-marker:"Permanent Marker","Comic Sans MS",cursive;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background-color:var(--table);
+  background-image:radial-gradient(circle at 9px 9px, rgba(255,255,255,.55) 0 3.2px, transparent 3.8px),radial-gradient(circle at 9px 10px, rgba(28,36,39,.07) 0 3.6px, transparent 4.2px);
+  background-size:18px 18px;color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.45}
+h1,h2,h3{font-family:var(--f-display);font-weight:400;margin:0;text-wrap:balance}
+h1{font-size:clamp(2.1rem,6vw,3.6rem);line-height:.98}
+h2{font-size:clamp(1.4rem,3.4vw,1.8rem);line-height:1.1}
+h3{font-size:1.1rem;line-height:1.2}
+p{margin:0}
+a{color:var(--kw)}
+:focus-visible{outline:3px solid var(--kw);outline-offset:2px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;background:var(--ink);color:#f5f3ea}
+.brand{font-family:var(--f-display);font-size:1.15rem}
+.langbtn{font:inherit;font-weight:700;font-size:.85rem;background:transparent;color:#f5f3ea;border:1.5px solid #f5f3ea;border-radius:5px;padding:4px 10px;cursor:pointer}
+main{max-width:1280px;margin:0 auto;padding:16px 16px 48px}
+.stack{display:grid;gap:18px}
+.panel{background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:16px;min-width:0}
+.muted{color:var(--muted)} .small{font-size:.88rem}
+.tape{display:inline-block;background:var(--tape);padding:3px 12px 2px;font-family:var(--f-display);font-size:.98rem;
+  clip-path:polygon(0 10%,4% 0,50% 7%,96% 0,100% 12%,98% 50%,100% 92%,95% 100%,50% 93%,5% 100%,0 90%,2% 50%);transform:rotate(-1.2deg)}
+.btn{font:inherit;font-weight:700;border:2px solid var(--ink);background:var(--paper);color:var(--ink);border-radius:7px;padding:10px 16px;cursor:pointer;
+  box-shadow:0 3px 0 var(--ink);transition:transform .08s,box-shadow .08s;display:inline-flex;align-items:center;justify-content:center;gap:8px;touch-action:manipulation}
+.btn:active:not(:disabled){transform:translateY(2px);box-shadow:0 1px 0 var(--ink)}
+.btn.primary{background:var(--accent);color:#fff}
+.btn.pk{background:var(--kp);color:#fff} .btn.wk{background:var(--kw);color:#fff}
+.btn:disabled{opacity:.4;cursor:not-allowed;box-shadow:0 1px 0 var(--ink);transform:translateY(2px)}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.kicker{font-weight:700;text-transform:uppercase;letter-spacing:.08em;font-size:.8rem;color:var(--accent)}
+.lead{font-size:1.08rem;max-width:62ch;margin-top:10px}
+.two{display:grid;gap:16px;grid-template-columns:1fr}
+@media(min-width:860px){.two{grid-template-columns:1fr 1fr}}
+.rounds{display:grid;gap:14px;grid-template-columns:1fr}
+@media(min-width:760px){.rounds{grid-template-columns:repeat(3,1fr)}}
+.rcard{position:relative;padding-top:32px}
+.rcard .num{position:absolute;top:-12px;left:14px;background:var(--postit);font-family:var(--f-marker);font-size:1.3rem;width:40px;height:38px;display:grid;place-items:center;transform:rotate(-4deg);box-shadow:0 2px 3px rgba(0,0,0,.18)}
+.rcard p{margin-top:6px}
+.field{display:grid;gap:4px;margin-top:12px}
+.field label,.flabel{font-weight:700;font-size:.92rem}
+select,input[type=text],textarea{font:inherit;padding:9px 10px;border:1.5px solid var(--ink);border-radius:6px;background:#fff;color:var(--ink)}
+textarea{min-height:80px;resize:vertical;width:100%}
+.credit{font-size:.85rem;color:var(--muted)}
+.opts{display:grid;gap:10px;grid-template-columns:1fr;margin-top:8px}
+@media(min-width:760px){.opts.c3{grid-template-columns:repeat(3,1fr)}.opts.c2{grid-template-columns:repeat(2,1fr)}}
+.opt{text-align:left;font:inherit;background:var(--paper);border:2px solid var(--line);border-radius:7px;padding:12px;cursor:pointer;display:grid;gap:4px;color:var(--ink)}
+.opt small{color:var(--muted)}
+.opt[aria-pressed="true"]{border-color:var(--ink);background:#fff8d6;box-shadow:0 3px 0 var(--ink)}
+/* cartellini e contenitori */
+.kc{display:inline-flex;align-items:center;height:17px;padding:0 4px;font-size:.64rem;font-weight:700;border-radius:2px;border:1.5px solid var(--ink);line-height:1}
+.kc.p{background:var(--kp);color:#fff} .kc.w{background:var(--kw);color:#fff}
+.kc b{margin-right:3px;padding-right:3px;border-right:1px solid rgba(255,255,255,.6)}
+.kc{white-space:nowrap}
+.ct{display:inline-grid;place-items:center;width:32px;height:24px;background:var(--box);border:1.5px solid var(--ink);border-radius:2px}
+.ct svg{max-width:26px;max-height:19px;width:auto;height:auto}
+.ct.e{background:rgba(255,255,255,.5);border-style:dashed;width:22px;height:17px;margin-right:3px}
+.cw{display:inline-flex;flex-direction:column;align-items:center;gap:1px;margin:3px 3px 0 0}
+.hid{visibility:hidden}
+#flylayer{position:fixed;inset:0;pointer-events:none;z-index:15;overflow:hidden}
+.fly{position:fixed;filter:drop-shadow(0 3px 3px rgba(0,0,0,.3))}
+.legendk{background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:6px 10px;margin-bottom:10px}
+.ebox{display:flex;flex-wrap:wrap;align-items:center;gap:2px;min-height:22px;font-size:.7rem}
+.ebox .pl{font-weight:700;margin-right:4px}
+.corr{position:relative;min-height:158px;border-bottom:4px dashed var(--muted);margin:0 2px 22px}
+.stop{position:absolute;bottom:-22px;font-size:.72rem;font-weight:700;color:var(--muted)}
+.stop.l{left:0} .stop.r{right:0}
+.cartp{position:absolute;top:0;width:min(360px,78%);left:calc(var(--pos,1)*(100% - min(360px,78%)));transition:left .1s linear;background:var(--paper);border:2px solid var(--ink);border-radius:8px;padding:6px 8px;box-shadow:0 3px 0 var(--ink);min-height:128px}
+.carth{display:flex;gap:8px;align-items:center;font-size:.85rem;line-height:1.2}
+.capt{color:var(--good);font-weight:700}
+.cl{display:flex;flex-wrap:wrap;align-items:flex-end;gap:2px;margin-top:4px;min-height:22px}
+.cl .pl{font-size:.7rem;font-weight:700;margin-right:4px;align-self:center}
+.more{font-size:.78rem;font-weight:700}
+/* partita */
+.hud{position:sticky;top:0;z-index:5;display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;padding:10px 12px;background:var(--ink);color:#f5f3ea;border-radius:0 0 8px 8px;margin:-16px -4px 14px}
+.hud .pill{font-family:var(--f-display);font-size:1rem}
+.clock{font-family:var(--f-display);font-size:1.9rem;line-height:1;font-variant-numeric:tabular-nums;min-width:3.2ch}
+.clock.low{color:#ff8f86}
+.hstat{display:grid;line-height:1.05}
+.hstat span{font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;opacity:.75}
+.hstat b{font-family:var(--f-display);font-weight:400;font-size:1.25rem;font-variant-numeric:tabular-nums}
+.hud .sp{flex:1}
+.hud .btn{padding:5px 11px;font-size:.88rem;box-shadow:0 2px 0 #000;border-color:#f5f3ea}
+.floor{display:grid;gap:12px;grid-template-columns:1fr}
+@media(min-width:1040px){.floor{grid-template-columns:1.05fr 1.25fr 1.25fr .8fr;grid-template-rows:auto 1fr;grid-template-areas:"dept mizu mizu asm" "dept super line asm";align-items:stretch}.za-dept{grid-area:dept}.za-super{grid-area:super}.za-line{grid-area:line}.za-mizu{grid-area:mizu}.za-asm{grid-area:asm}}
+.zone{border:6px solid var(--tape);border-radius:3px;background:rgba(255,255,255,.4);padding:8px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.zone>.zh{display:flex;justify-content:space-between;align-items:flex-start;gap:6px}
+.dept{background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:8px;display:grid;gap:5px;min-height:112px;align-content:start}
+.dept.you{border:2px solid var(--accent)}
+.dept .dh{display:flex;justify-content:space-between;gap:6px;font-weight:700;font-size:.92rem}
+.dept .dh small{font-weight:400;color:var(--muted)}
+.post{display:flex;flex-wrap:wrap;gap:3px;align-items:center;min-height:22px;padding:2px 4px;border:1.5px dashed var(--kp);border-radius:4px;background:var(--kp-bg)}
+.post.w{border-color:var(--kw);background:var(--kw-bg)}
+.post .pl{font-size:.7rem;font-weight:700;margin-right:3px}
+.bar{display:block;height:8px;border-radius:4px;background:#e4e1d6;overflow:hidden}
+.bar b{display:block;height:100%;background:var(--ink);border-radius:4px}
+.bar.su b{background:var(--warn)}
+.jl{font-size:.82rem;display:flex;justify-content:space-between;gap:6px}
+.jl .st-work{color:var(--good);font-weight:700} .jl .st-idle{color:var(--muted);font-weight:700}
+.last{font-size:.75rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.build{height:34px;display:flex;align-items:flex-end;gap:8px}
+.bom{display:grid;gap:12px;grid-template-columns:1fr;margin-top:10px}
+@media(min-width:620px){.bom{grid-template-columns:repeat(2,1fr)}}
+@media(min-width:1040px){.bom{grid-template-columns:repeat(4,1fr)}}
+.bomc{border:1px solid var(--line);border-radius:6px;padding:10px;background:#fff;display:grid;gap:8px;align-content:start}
+.bomh{display:flex;align-items:flex-end;gap:10px}
+.bomr{display:grid;grid-template-columns:44px 1fr;gap:8px;align-items:center;font-size:.85rem;border-top:1px solid var(--line);padding-top:6px}
+.bomp{display:flex;justify-content:center}
+.bomb{display:block;white-space:nowrap}
+.bomb svg{vertical-align:-3px}
+.grid{display:grid;grid-template-columns:auto repeat(4,1fr);gap:3px;font-size:.78rem}
+.grid .gh{text-align:center;font-weight:700;padding:2px 0;line-height:1.1}
+.grid .gr{font-weight:700;display:flex;align-items:center;padding-right:4px}
+.grid .gc{background:var(--paper);border:1px solid var(--line);border-radius:4px;min-height:88px;padding:1px 1px 4px 2px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start}
+.grid .gc.alert{border:2px solid var(--bad);background:#fde8e6}
+.track{position:relative;height:34px;margin:4px 14px 0;border-bottom:3px dashed var(--muted)}
+.cart{position:absolute;bottom:2px;transform:translateX(-50%);transition:left .1s linear}
+.ends{display:flex;justify-content:space-between;font-size:.7rem;color:var(--muted)}
+.mini{font-size:.82rem}
+.cartload{display:flex;flex-wrap:wrap;min-height:26px;align-items:flex-end}
+.orders{display:flex;flex-wrap:wrap;gap:2px;align-items:center;min-height:34px}
+.alarm{color:var(--bad);font-weight:700;font-size:.85rem}
+.ticker{list-style:none;margin:10px 0 0;padding:8px 10px;background:var(--paper);border:1px solid var(--line);border-radius:6px;font-size:.82rem;display:grid;gap:2px;min-height:5.6em}
+.ticker li:first-child{font-weight:700}
+.ticker time{color:var(--muted);font-variant-numeric:tabular-nums;margin-right:6px}
+.abar{position:sticky;bottom:0;z-index:5;margin:12px -4px 0;padding:10px 12px 12px;background:var(--paper);border:2px solid var(--ink);border-radius:8px 8px 0 0;display:grid;gap:8px;box-shadow:0 -4px 10px rgba(0,0,0,.08)}
+.abar .acts{display:flex;flex-wrap:wrap;gap:8px}
+.abar .btn{flex:1 1 150px;min-height:52px}
+.hint{font-size:.88rem;color:var(--muted);min-height:1.3em}
+.pause-ov{position:fixed;inset:0;background:rgba(28,36,39,.55);display:grid;place-items:center;z-index:20;padding:16px}
+.pause-ov[hidden]{display:none}
+.pause-ov .panel{max-width:380px;width:100%;display:grid;gap:12px;text-align:center}
+/* riepiloghi */
+.scorebox{display:grid;gap:16px;grid-template-columns:1fr;align-items:start}
+@media(min-width:820px){.scorebox{grid-template-columns:280px 1fr}}
+.score{background:var(--postit);padding:18px;transform:rotate(-1.5deg);box-shadow:0 3px 6px rgba(0,0,0,.18);text-align:center}
+.score .v{font-family:var(--f-marker);font-size:3.8rem;line-height:1;font-variant-numeric:tabular-nums}
+.neg{color:var(--bad)} .pos{color:var(--good)}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:right}
+th:first-child,td:first-child{text-align:left}
+thead th{font-size:.78rem;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+tfoot td{font-weight:700;border-bottom:0;font-size:1.05rem}
+.tablewrap{overflow-x:auto}
+.tiles{display:grid;gap:10px;grid-template-columns:repeat(2,1fr)}
+@media(min-width:820px){.tiles{grid-template-columns:repeat(4,1fr)}}
+.tile{background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:12px}
+.tile span{display:block;font-size:.76rem;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.tile b{font-family:var(--f-display);font-weight:400;font-size:1.6rem;font-variant-numeric:tabular-nums}
+.tile small{display:block;color:var(--muted);font-size:.8rem}
+.chart{width:100%;height:auto;display:block}
+.chart .g{stroke:#d8ddd4;stroke-width:1} .chart .base{stroke:var(--ink);stroke-width:1.2}
+.chart .ax{fill:var(--muted);font-size:11px;font-family:var(--f-body)}
+.chart .lbl{fill:var(--ink);font-size:12px;font-weight:700;font-family:var(--f-body)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:.85rem;margin-top:6px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+.urow{display:grid;grid-template-columns:minmax(110px,200px) 1fr 48px;gap:10px;align-items:center;margin-top:8px;font-size:.9rem}
+.ubar{height:14px;background:#e4e1d6;border-radius:3px;overflow:hidden}
+.ubar b{display:block;height:100%;background:var(--ink)}
+.uval{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.note{border-left:5px solid var(--accent);background:#fff;padding:10px 12px;border-radius:0 6px 6px 0}
+.steps{margin:10px 0 0;padding-left:1.3em;display:grid;gap:6px}
+.ins{list-style:none;padding:0;margin:10px 0 0;display:grid;gap:8px}
+.ins li{padding:8px 10px;background:#fff;border-radius:6px;border:1px solid var(--line)}
+.formula{font-family:var(--f-display);font-size:1.25rem;background:#fff;border:1px solid var(--line);border-radius:6px;padding:10px 14px;display:inline-block;margin-top:8px}
+.stp{display:inline-grid;grid-template-columns:28px 34px 28px;align-items:center;justify-items:center}
+.stp button{font:inherit;font-weight:700;width:28px;height:28px;border-radius:50%;border:2px solid var(--ink);background:#fff;cursor:pointer;padding:0;line-height:1}
+.stp b{font-family:var(--f-marker);font-size:1.4rem}
+.copyarea{width:100%;min-height:120px;font-size:.85rem;margin-top:8px}
+.flash{color:var(--good);font-weight:700}
+.loop text{font-family:var(--f-body);font-size:12px;fill:var(--ink)}
+.loop .bx{fill:var(--paper);stroke:var(--ink);stroke-width:1.5}
+.loop .bt{font-family:var(--f-display);font-size:14px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header class="topbar"><span class="brand" id="brand">Fattoria LEGO a doppio kanban</span><button class="langbtn" id="langBtn" data-act="lang" aria-label="Language">EN</button></header>
+<main id="app"></main>
+<div id="flylayer" aria-hidden="true"></div>
+<script>
+(function(){
+'use strict';
+/* ===== Motore di simulazione: sistema kanban a doppio cartellino ===== */
+const TYPES=['cow','horse','sheep','duck'];
+const COMPS=['legs','body','head'];
+const PN=[];COMPS.forEach(c=>TYPES.forEach(ty=>PN.push(c+'-'+ty)));
+const MEAN={legs:{cow:3,horse:4,sheep:3,duck:2},body:{cow:5.5,horse:5.5,sheep:7,duck:5},head:{cow:3,horse:3,sheep:2,duck:3}};
+const SETUP={legs:1,body:2.5,head:1};
+const P={takt:8,asm:5,travel:3,swap:1.4,handle:0.4,cart:8,pitch:20,pitchFast:10,cv:0.25,cvStd:0.08,smed:0.3,ptsDone:10,ptsBacklog:5,ptsWip:1};
+
+function rng32(seed){return function(){seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function makeSeq(seed,leveled,n){
+  n=n||200;const out=[];
+  if(leveled){const rot=['cow','sheep','horse','duck'];for(let i=0;i<n;i++)out.push(rot[i%4]);}
+  else{const r=rng32(seed);for(let i=0;i<n;i++)out.push(TYPES[Math.floor(r()*4)]);}
+  return out;
+}
+
+function makeSim(cfg){
+  const R=Math.random, imp=new Set(cfg.imp||[]);
+  const cv=imp.has('std')?P.cvStd:P.cv;
+  const draw=m=>Math.max(0.35*m,m+(R()+R()-1)*cv*m*Math.sqrt(6));
+  const pitch=imp.has('pitch')?P.pitchFast:P.pitch;
+  let cid=1,kid=1;
+  const S={t:0,mode:cfg.mode,dur:cfg.dur,ended:false,imp,human:cfg.human||null,pitch,cv,
+    super:{},line:{},empties:[],cells:{},
+    asm:{job:null,busy:0,starve:0,missing:[]},
+    mizu:{loc:'line',pos:1,act:null,full:[],empty:[],nextDepart:pitch,busy:0,trips:0,swaps:0},
+    queue:[],delivered:[],orderIdx:0,log:[],ev:[],samples:[],nextSample:0,
+    LP:{},LW:{},stockT:{},shortN:{},produced:0,
+    seq:makeSeq(cfg.seqSeed||1,imp.has('heijunka')),nP:cfg.nP,nW:cfg.nW};
+  PN.forEach(p=>{S.super[p]=[];S.line[p]=[];S.LP[p]=[];S.LW[p]=[];S.stockT[p]=0;S.shortN[p]=0;});
+  COMPS.forEach(c=>{S.cells[c]={post:[],job:null,busy:0,made:0,last:null,lastType:null,setups:0,boxes:0};});
+  if(cfg.mode==='kanban'){
+    PN.forEach(p=>{const c=p.split('-')[0];
+      for(let i=0;i<cfg.nP[c];i++)S.super[p].push({id:cid++,pn:p,card:{k:'P',id:kid++,pn:p}});
+      for(let i=0;i<cfg.nW[c];i++)S.line[p].push({id:cid++,pn:p,card:{k:'W',id:kid++,pn:p}});});
+  } else PN.forEach(p=>S.line[p].push({id:cid++,pn:p,card:null}));
+
+  const log=(k,a)=>{S.log.push({t:S.t,k,a:a||[]});if(S.log.length>60)S.log.shift();};
+  const comp=p=>p.split('-')[0], typ=p=>p.split('-')[1];
+  const sum=o=>PN.reduce((s,p)=>s+o[p].length,0);
+  const load=()=>S.mizu.full.length+S.mizu.empty.length;
+  const isHumanCell=c=>c==='legs'&&S.human==='legs';
+  const isHumanM=()=>S.human==='mizu';
+
+  /* --- reparti --- */
+  function startProd(c,card,ty){
+    ty=card?typ(card.pn):ty;const cell=S.cells[c];
+    const su=(cell.lastType&&cell.lastType!==ty)?SETUP[c]*(imp.has('smed')?P.smed:1):0;
+    const d=draw(MEAN[c][ty])+su;cell.lastType=ty;if(su)cell.setups++;
+    cell.job={pn:c+'-'+ty,card,rem:d,dur:d,setup:su,type:ty,start:S.t};
+    if(card){cell.boxes=Math.max(0,cell.boxes-1);S.ev.push({k:'prodStart',c,kid:card.id,pn:card.pn});}
+  }
+  function finishProd(c){
+    const cell=S.cells[c],j=cell.job;
+    const nc={id:cid++,pn:j.pn,card:j.card};S.super[j.pn].push(nc);S.ev.push({k:'prodDone',c,pn:j.pn,cid:nc.id,kid:j.card?j.card.id:null});
+    if(j.card)S.LP[j.pn].push(S.t-j.card.tPost);
+    cell.last={pn:j.pn,dur:j.dur,setup:j.setup,mean:MEAN[c][j.type]};
+    cell.job=null;cell.made++;S.produced++;
+    log('made',[j.pn,j.dur,!!j.card]);
+  }
+  function cellsStep(dt){
+    COMPS.forEach(c=>{const cell=S.cells[c];
+      if(!cell.job&&!isHumanCell(c)){
+        if(S.mode==='kanban'){if(cell.post.length)startProd(c,cell.post.shift());}
+        else startProd(c,null,TYPES[Math.floor(R()*4)]);
+      }
+      if(cell.job){cell.busy+=dt;cell.job.rem-=dt;if(cell.job.rem<=0)finishProd(c);}
+    });
+  }
+  /* --- assemblaggio finale --- */
+  function asmStep(dt){
+    const A=S.asm;
+    if(!A.job&&S.queue.length){
+      const o=S.queue[0],need=COMPS.map(c=>c+'-'+o.type),miss=need.filter(p=>!S.line[p].length);
+      if(!miss.length){
+        S.queue.shift();
+        const its=[];need.forEach(p=>{const ct=S.line[p].shift();its.push({pn:p,kid:ct.card?ct.card.id:null});if(ct.card){ct.card.tEmpty=S.t;S.empties.push(ct);}});S.ev.push({k:'consume',type:o.type,items:its});
+        const d=draw(P.asm);A.job={order:o,rem:d,dur:d};A.missing=[];
+      } else {
+        if(A.missing.join()!==miss.join()){miss.filter(p=>!A.missing.includes(p)).forEach(p=>{S.shortN[p]++;log('short',[p]);});}
+        A.missing=miss;o.waited=true;A.starve+=dt;miss.forEach(p=>S.stockT[p]+=dt);
+      }
+    }
+    if(A.job){A.busy+=dt;A.job.rem-=dt;if(A.job.rem<=0){A.job.order.tDone=S.t;S.delivered.push(A.job.order);log('ship',[A.job.order.type]);A.job=null;}}
+  }
+  /* --- Mizusumashi --- */
+  function findSwap(){
+    for(const e of S.mizu.empty){const f=S.super[e.pn].find(x=>x.card&&x.card.k==='P');if(f)return{e,f};}
+    return null;
+  }
+  function mCan(a){
+    const M=S.mizu;
+    if(S.ended)return'ended';
+    if(M.act)return'busy';
+    switch(a){
+      case'deliver':return M.loc!=='line'?'where':(!M.full.length?'nothing':'');
+      case'collect':return M.loc!=='line'?'where':(S.mode!=='kanban'?'mode':(!S.empties.length?'noEmpty':(load()>=P.cart?'cartFull':'')));
+      case'goSuper':return M.loc!=='line'?'where':'';
+      case'swap':return M.loc!=='super'?'where':(S.mode!=='kanban'?'mode':(!M.empty.length?'noW':(!findSwap()?'noMatch':'')));
+      case'loadAll':return M.loc!=='super'?'where':(S.mode!=='push'?'mode':(!sum(S.super)?'superEmpty':(load()>=P.cart?'cartFull':'')));
+      case'goLine':return M.loc!=='super'?'where':'';
+    }
+    return'unknown';
+  }
+  function startM(kind,extra){
+    const M=S.mizu;let d=0,data=null;
+    if(kind==='deliver')d=Math.max(0.6,P.handle*M.full.length);
+    if(kind==='collect'){const k=Math.min(S.empties.length,P.cart-load());d=Math.max(0.6,P.handle*k);data=k;}
+    if(kind==='goSuper'||kind==='goLine'){d=P.travel*(0.9+R()*0.2);if(kind==='goSuper')M.trips++;}
+    if(kind==='swap'){data=findSwap();d=P.swap;}
+    if(kind==='loadAll'){const k=Math.min(P.cart-load(),sum(S.super));d=Math.max(0.6,P.handle*k);data=k;}
+    if(kind==='wait')d=extra;
+    M.act={kind,rem:d,dur:d,data};
+    if(kind==='deliver')S.ev.push({k:'deliverStart',dur:d,items:M.full.map(c=>({pn:c.pn,cid:c.id,kid:c.card?c.card.id:null}))});
+    if(kind==='collect')S.ev.push({k:'collectStart',dur:d,items:S.empties.slice(0,data).map(c=>({pn:c.pn,kid:c.card.id}))});
+    if(kind==='swap'&&data)S.ev.push({k:'swapStart',dur:d,pn:data.f.pn,pk:data.f.card.id,wk:data.e.card.id,fc:data.f.id});
+    if(kind==='loadAll'){const all=[];PN.forEach(p=>S.super[p].forEach(c=>all.push(c)));all.sort((x,y)=>x.id-y.id);S.ev.push({k:'loadStart',dur:d,items:all.slice(0,data).map(c=>({pn:c.pn,cid:c.id}))});}
+    if(kind==='goSuper')log('mGo',[M.empty.length]);
+  }
+  function completeM(a){
+    const M=S.mizu;
+    switch(a.kind){
+      case'deliver':
+        M.full.forEach(f=>{S.line[f.pn].push(f);if(f.card&&f.card.tEmpty!=null){S.LW[f.pn].push(S.t-f.card.tEmpty);f.card.tEmpty=null;}});
+        log('mDeliver',[M.full.length]);M.full=[];break;
+      case'collect':{const got=S.empties.splice(0,a.data);M.empty.push(...got);log('mCollect',[got.length]);break;}
+      case'goSuper':M.loc='super';M.pos=0;break;
+      case'goLine':M.loc='line';M.pos=1;break;
+      case'swap':{
+        const{e,f}=a.data;const i=S.super[f.pn].indexOf(f),j=M.empty.indexOf(e);
+        if(i<0||j<0)break;
+        S.super[f.pn].splice(i,1);M.empty.splice(j,1);
+        const pc=f.card;pc.tPost=S.t;S.cells[comp(f.pn)].post.push(pc);
+        f.card=e.card;M.full.push(f);M.swaps++;S.cells[comp(f.pn)].boxes++;
+        log('swap',[f.pn]);break;}
+      case'loadAll':{
+        const all=[];PN.forEach(p=>S.super[p].forEach(c=>all.push(c)));all.sort((x,y)=>x.id-y.id);
+        all.slice(0,a.data).forEach(c=>{S.super[c.pn].splice(S.super[c.pn].indexOf(c),1);M.full.push(c);});
+        log('mLoad',[a.data]);break;}
+    }
+    if(a.kind!=='wait')S.ev.push({k:'mDone',kind:a.kind});
+  }
+  function botMizu(){
+    const M=S.mizu;
+    if(M.loc==='line'){
+      if(M.full.length)return startM('deliver');
+      if(S.mode==='kanban'&&S.empties.length&&load()<P.cart)return startM('collect');
+      if(S.t<M.nextDepart)return startM('wait',Math.min(0.5,M.nextDepart-S.t));
+      while(M.nextDepart<=S.t)M.nextDepart+=S.pitch;
+      if(S.mode==='kanban'&&!M.empty.length)return startM('wait',0.5);
+      return startM('goSuper');
+    }
+    if(S.mode==='kanban'){if(findSwap())return startM('swap');}
+    else if(sum(S.super)&&load()<P.cart)return startM('loadAll');
+    return startM('goLine');
+  }
+  function mizuStep(dt){
+    const M=S.mizu;
+    if(!M.act&&!isHumanM())botMizu();
+    if(M.act){
+      if(M.act.kind!=='wait')M.busy+=dt;
+      M.act.rem-=dt;
+      const pr=1-Math.max(0,M.act.rem)/M.act.dur;
+      if(M.act.kind==='goSuper')M.pos=1-pr;
+      if(M.act.kind==='goLine')M.pos=pr;
+      if(M.act.rem<=0){const a=M.act;M.act=null;completeM(a);if(!isHumanM())botMizu();}
+    }
+  }
+  function sample(){
+    S.samples.push({t:S.t,sup:sum(S.super),line:sum(S.line),tr:S.mizu.full.length,bl:S.queue.length+(S.asm.job?1:0),post:COMPS.map(c=>S.cells[c].post.length)});
+  }
+  function step(dt){
+    if(S.ended)return;
+    S.t+=dt;
+    while(S.orderIdx*P.takt<=S.t&&S.orderIdx*P.takt<S.dur){S.queue.push({id:S.orderIdx+1,type:S.seq[S.orderIdx],tArr:S.orderIdx*P.takt,waited:false});S.orderIdx++;}
+    cellsStep(dt);asmStep(dt);mizuStep(dt);
+    while(S.t>=S.nextSample){sample();S.nextSample+=2;}
+    if(S.t>=S.dur){S.t=S.dur;S.ended=true;sample();}
+  }
+  /* --- azioni del giocatore --- */
+  function can(role,a,arg){
+    if(S.ended)return'ended';
+    if(role==='legs'){
+      const cell=S.cells.legs;
+      if(cell.job)return'busy';
+      if(a==='produce')return S.mode!=='kanban'?'mode':(!cell.post.length?'noCard':'');
+      if(a==='produceType')return S.mode!=='push'?'mode':'';
+    }
+    if(role==='mizu')return mCan(a);
+    return'unknown';
+  }
+  function act(role,a,arg){
+    if(can(role,a,arg))return false;
+    if(role==='legs'){
+      if(a==='produce'){const cd=S.cells.legs.post.shift();startProd('legs',cd);log('pTake',[cd.pn]);}
+      else startProd('legs',null,arg);
+      return true;
+    }
+    startM(a==='goSuper'?'goSuper':a);return true;
+  }
+  function wip(){return sum(S.super)+sum(S.line)+S.mizu.full.length+COMPS.filter(c=>S.cells[c].job).length;}
+  function result(){
+    const bl=S.queue.length+(S.asm.job?1:0),w=wip(),d=S.delivered.length;
+    const tt=Math.max(1,S.t);
+    const pend=S.queue.concat(S.asm.job?[S.asm.job.order]:[]),nAll=d+pend.length;
+    const lead=nAll?(S.delivered.reduce((s,o)=>s+(o.tDone-o.tArr),0)+pend.reduce((s,o)=>s+(S.t-o.tArr),0))/nAll:null;
+    const noWait=nAll?S.delivered.filter(o=>!o.waited).length/nAll:0;
+    const fam=o=>{const r={};COMPS.forEach(c=>{const a=[];TYPES.forEach(ty=>a.push(...o[c+'-'+ty]));r[c]=a.length?a.reduce((s,x)=>s+x,0)/a.length:null;});return r;};
+    const util={};COMPS.forEach(c=>util[c]=Math.min(1,S.cells[c].busy/tt));util.asm=Math.min(1,S.asm.busy/tt);util.mizu=Math.min(1,S.mizu.busy/tt);
+    return{mode:S.mode,t:tt,dur:S.dur,delivered:d,backlog:bl,wip:w,orders:S.orderIdx,
+      points:d*P.ptsDone-bl*P.ptsBacklog-w*P.ptsWip,lead,noWait,
+      LPf:fam(S.LP),LWf:fam(S.LW),stockT:Object.assign({},S.stockT),shortN:Object.assign({},S.shortN),
+      util,produced:S.produced,setups:COMPS.reduce((o,c)=>(o[c]=S.cells[c].setups,o),{}),samples:S.samples,
+      wipAvg:S.samples.length?S.samples.reduce((s,x)=>s+x.sup+x.line+x.tr,0)/S.samples.length:0,
+      starve:S.asm.starve,trips:S.mizu.trips,swaps:S.mizu.swaps,
+      nP:cfg.nP,nW:cfg.nW,imp:[...imp],human:S.human,cards:cfg.mode==='kanban'?COMPS.reduce((s,c)=>s+4*(cfg.nP[c]+cfg.nW[c]),0):0};
+  }
+  return{S,step,can,act,result,wip,load,findSwap};
+}
+
+
+const INK='#1c2427';
+/* Modelli LEGO: ogni rettangolo disegnato è un mattoncino della distinta base (vista laterale, tutti i mattoncini sono profondi 2 bottoncini) */
+const BW={'2x4':4,'2x3':3,'2x2':2,'1x2':1};
+const BCOL={k:'#2b2b2b',w:'#f3f0e8',t:'#d8c690',b:'#9b5a2c',d:'#6b3a17',r:'#cc2f27',c:'#f6eccf',o:'#ee8a22',y:'#f4c430'};
+const B=(s,x,y,c)=>({s,x,y,c});
+const MODEL={
+ cow:{legs:[B('1x2',0,0,'k'),B('1x2',3,0,'k')],body:[B('2x4',0,1,'w'),B('2x4',0,2,'k')],head:[B('2x2',3,3,'w'),B('1x2',3,4,'t')]},
+ horse:{legs:[B('1x2',0,0,'b'),B('1x2',3,0,'b'),B('1x2',0,1,'b'),B('1x2',3,1,'b')],body:[B('2x4',0,2,'b'),B('2x2',1,3,'r')],head:[B('1x2',3,3,'b'),B('2x2',3,4,'d')]},
+ sheep:{legs:[B('1x2',0,0,'k'),B('1x2',3,0,'k')],body:[B('2x4',0,1,'c'),B('2x4',0,2,'c'),B('2x2',1,3,'c')],head:[B('2x2',3,3,'k')]},
+ duck:{legs:[B('2x2',1,0,'o')],body:[B('2x4',0,1,'y'),B('2x2',0,2,'y')],head:[B('2x2',3,2,'o'),B('2x2',2,3,'y')]}
+};
+const BU=10,BH=9;
+function brickRect(b,ox,base,ghost){
+  const w=BW[b.s]*BU,x=ox+b.x*BU,y=base-(b.y+1)*BH;
+  if(ghost)return'<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+BH+'" fill="none" stroke="#6f7c82" stroke-width=".8" stroke-dasharray="2 1.6" opacity=".7"/>';
+  let s='';for(let i=0;i<BW[b.s];i++)s+='<rect x="'+(x+i*BU+2.5)+'" y="'+(y-1.8)+'" width="5" height="2" fill="'+BCOL[b.c]+'" stroke="'+INK+'" stroke-width=".6"/>';
+  return s+'<rect x="'+x+'" y="'+y+'" width="'+w+'" height="'+BH+'" fill="'+BCOL[b.c]+'" stroke="'+INK+'" stroke-width=".8"/>';
+}
+/* o.only: disegna un solo componente (ritagliato); o.n: mattoncini già montati; o.have: componenti presenti */
+function drawModel(type,o){
+  o=o||{};const m=MODEL[type],comps=o.only?[o.only]:['legs','body','head'];
+  let list=[];comps.forEach(c=>m[c].forEach((b,i)=>list.push({b,c,i})));
+  list.sort((p,q)=>p.b.y-q.b.y);
+  let x0=0,x1=5,y1=5;
+  if(o.only){x0=Math.min(...list.map(e=>e.b.x));x1=Math.max(...list.map(e=>e.b.x+BW[e.b.s]));}
+  const ymin=o.only?Math.min(...list.map(e=>e.b.y)):0;y1=o.only?Math.max(...list.map(e=>e.b.y))+1:5;
+  const base=(y1)*BH+4,ox=2-x0*BU,W=(x1-x0)*BU+4,H=(y1-ymin)*BH+5;
+  let out='';
+  list.forEach(e=>{
+    const present=o.only?(o.n==null||e.i<o.n):(!o.have||o.have.includes(e.c));
+    if(present)out+=brickRect(e.b,ox,base,false);else if(o.ghost!==false)out+=brickRect(e.b,ox,base,true);
+  });
+  if(!o.only||o.only==='head'){
+    const hb=m.head.filter(b=>b.s==='2x2').pop();const idx=m.head.indexOf(hb);
+    const shown=o.only?(o.n==null||idx<o.n):(!o.have||o.have.includes('head'));
+    if(hb&&shown)out+='<circle cx="'+(ox+(hb.x+1.4)*BU)+'" cy="'+(base-(hb.y+1)*BH+3.6)+'" r="1.3" fill="'+((hb.c==='k'||hb.c==='d')?'#fff':INK)+'"/>';
+  }
+  const w=o.w||50,vy=base-(y1)*BH-3;
+  return'<svg viewBox="0 '+vy+' '+W+' '+H+'" width="'+w+'" height="'+Math.round(w*H/W)+'" aria-hidden="true">'+out+'</svg>';
+}
+function brickChip(s,c){return'<svg viewBox="0 0 '+(BW[s]*BU+4)+' 15" width="'+Math.round((BW[s]*BU+4)*1.1)+'" height="16" aria-hidden="true">'+brickRect({s,x:0,y:0,c},2,13,false)+'</svg>';}
+
+/* ===== Interfaccia ===== */
+const TXT={
+it:{
+ title:'Fattoria LEGO a doppio kanban',kicker:'Serious game · Lean production',
+ lead:'Tre reparti costruiscono zampe, corpi e teste; un supermarket li separa dall\'assemblaggio finale. Scoprite come due cartellini, uno di produzione e uno di prelievo, governano tutto lo stabilimento senza un programma centrale.',
+ t_cow:'Mucca',t_horse:'Cavallo',t_sheep:'Pecora',t_duck:'Papera',ab_cow:'Mu',ab_horse:'Ca',ab_sheep:'Pe',ab_duck:'Pa',
+ c_legs:'Zampe',c_body:'Corpo',c_head:'Testa',d_legs:'Reparto Zampe',d_body:'Reparto Corpi',d_head:'Reparto Teste',
+ howTitle:'Tre round',bomT:'Distinta base',bomD:'Ogni animale è fatto esattamente di questi mattoncini: i disegni del gioco li mostrano uno per uno. Più mattoncini ha un componente, più tempo richiede.',
+ r1t:'Push',r1d:'I reparti producono su previsione, sempre a pieno ritmo. Il Mizusumashi porta alla linea tutto quello che trova.',
+ r2t:'Doppio kanban',r2d:'Decidete quanti kanban di produzione (P) e di prelievo (W) mettere in circolo. Si produce e si movimenta solo con un cartellino.',
+ r3t:'Kaizen',r3d:'Misurate i lead time dei due anelli, ricalcolate i cartellini e scegliete due miglioramenti.',
+ roleTitle:'Scegli il tuo ruolo',
+ role_legs:'Reparto Zampe',role_legs_d:'Costruisci le zampe. Ogni pezzo richiede tempo, e il tempo cambia a ogni esecuzione.',
+ role_mizu:'Mizusumashi',role_mizu_d:'Fai il giro tra linea e supermarket e scambi i cartellini. È il ruolo che fa capire meglio i due anelli.',
+ role_obs:'Osservatore',role_obs_d:'Tutto automatico: ideale da proiettare in aula e commentare.',
+ setTitle:'Impostazioni',dur:'Durata di ogni round',speed:'Velocità',teamName:'Nome della squadra (facoltativo)',min:n=>n+' minuti',start1:'Inizia il round 1',
+ scoring:'Punteggio: +10 per ogni animale spedito, −5 per ogni ordine non evaso a fine round, −1 per ogni contenitore di scorta rimasto in stabilimento.',
+ demand:'Il cliente ordina un animale ogni 8 secondi (takt time).',
+ credit:'Ispirato al <a href="https://www.organizeagile.com/update/lego-kanban-game" target="_blank" rel="noopener">Lego Animal Farm Kanban Game</a> di Organize Agile; ciclo a due cartellini secondo Monden, <i>Toyota Production System</i>.',
+ round:'Round',shipped:'Spediti',waiting:'Ordini in attesa',stock:'Scorte',pause:'Pausa',resume:'Riprendi',endRound:'Termina il round',paused:'Gioco in pausa',
+ z_dept:'Reparti',z_super:'Supermarket',z_mizu:'Mizusumashi',z_line:'Bordo linea',z_asm:'Assemblaggio finale',
+ you:'Tu',animOn:'Animazioni: sì',animOff:'Animazioni: no',postP:'Cassetta kanban P',postW:'Cassetta kanban W',emptiesL:'Vuoti',ci_legs:'Z',ci_body:'C',ci_head:'T',kPn:'Kanban di produzione',kWn:'Kanban di prelievo',cFull:'Pieni',cW:'Kanban W in mano',stopS:'fermata supermarket',stopL:'fermata bordo linea',swapCap:x=>'Scambio '+x+': stacca P, attacca W',legend:(a,b)=>'Come leggere i cartellini: '+a+' kanban di produzione per Zampe Mucca · '+b+' kanban di prelievo per Corpo Papera. Z = zampe, C = corpo, T = testa.',
+ idle:'Fermo: nessun kanban',idlePush:'In attesa',working:'Costruisce',setup:x=>'cambio tipo +'+x+' s',last:(d,m)=>'ultimo pezzo: '+d+' s (standard '+m+' s)',
+ toSuper:'Supermarket',toLine:'Linea',onCart:'Sul carrello',wInHand:n=>'kanban W in mano: '+n,nextTrip:s=>'prossimo giro tra '+s+' s',
+ m_deliver:'Consegna a bordo linea',m_collect:'Raccoglie kanban W e vuoti',m_goSuper:'Va al supermarket',m_goLine:'Torna alla linea',m_swap:'Scambia i cartellini',m_loadAll:'Carica i contenitori',m_wait:'Aspetta il prossimo giro',m_idle:'Fermo',
+ asmWork:x=>'Assembla: '+x,asmWait:'In attesa di ordini',asmStarve:'Linea ferma. Manca:',next:'Prossimi ordini',truck:'Spediti',
+ b_take:'Prendi il kanban P e costruisci',b_deliver:'Consegna i pieni',b_collect:'Raccogli kanban W e vuoti',b_goSuper:'Vai al supermarket',b_swap:'Scambia P ↔ W',b_loadAll:'Carica i contenitori',b_goLine:'Torna alla linea',
+ h_legsPush:'Nessun cartellino: decidi tu che cosa costruire, in base alla previsione.',h_noCard:'Cassetta vuota: nessun kanban, nessuna produzione.',h_nextCard:x=>'Prossimo kanban nella cassetta: '+x+'.',h_building:(x,s)=>'Stai costruendo '+x+'… ancora '+s+' s.',
+ h_m_busy:(x,s)=>x+'… '+s+' s.',h_m_line:'Sei a bordo linea.',h_m_super:'Sei al supermarket.',h_m_noMatch:'Nessuno scambio possibile: i pezzi richiesti non sono nel supermarket.',h_obs:'Modalità osservatore: lo stabilimento lavora da solo.',
+ e_made:(o,x,k)=>o+' deposita '+x+' nel supermarket'+(k?' con il suo kanban P':''),e_pTake:x=>'Kanban P preso dalla cassetta: '+x,e_swap:x=>'Scambio su '+x+': kanban P alla cassetta del reparto, kanban W sul contenitore',
+ e_mGo:n=>'Il Mizusumashi parte per il supermarket con '+n+' kanban W',e_mCollect:n=>'Raccolti '+n+' kanban W e vuoti',e_mDeliver:n=>'Consegnati '+n+' contenitori a bordo linea',e_mLoad:n=>'Caricati '+n+' contenitori',e_short:x=>'Mancante a bordo linea: '+x,e_ship:x=>'Spedito: '+x,
+ sumTitle:n=>'Fine del round '+n,pts:'Punti',row_done:'Animali spediti',row_bl:'Ordini non evasi',row_wip:'Contenitori di scorta',total:'Totale',
+ m_lead:'Lead time ordine',m_leadS:'dall\'ordine alla spedizione',m_serv:'Ordini senza attesa',m_servS:'pezzi già a bordo linea',m_wip:'Scorta media',m_wipS:'contenitori in stabilimento',m_trips:'Giri del Mizusumashi',m_tripsS:n=>n+' scambi di cartellini',sec:'s',
+ ch_inv:'Scorte nel tempo (contenitori)',ch_bl:'Ordini in attesa nel tempo',l_sup:'Supermarket',l_line:'Bordo linea',l_tr:'Sul carrello',cap:n=>'tetto dei cartellini: '+n,
+ util:'Utilizzo delle risorse',famT:'I due anelli, misurati',f_fam:'Famiglia',f_LP:'L_P medio',f_LW:'L_W medio',f_short:'Linea ferma per mancante',
+ pushNote:(u,w,d)=>'Reparti occupati al '+u+'% e '+w+' contenitori di scorta, ma solo '+d+' animali spediti. Si è prodotto molto, ma non quello che serviva.',
+ kanNote:(c,w)=>'Con '+c+' cartellini in circolo la scorta non può superare '+c+' contenitori: a fine round erano '+w+'.',
+ next1:'Vai all\'intermezzo',next2:'Vai alla retrospettiva',next3:'Vai al debriefing',
+ imTitle:'Intermezzo: il sistema a due cartellini',
+ loopP:'Anello di produzione',loopW:'Anello di prelievo',lp1:'kanban P alla cassetta del reparto',lp2:'pezzo + kanban P',lw1:'kanban W + contenitore vuoto',lw2:'pieno + kanban W',swapHere:'scambio P ↔ W',
+ kP:'<span class="kc p">P</span> <b>Kanban di produzione</b>: autorizza il reparto a produrre un contenitore. Gira solo tra reparto e supermarket.',
+ kW:'<span class="kc w">W</span> <b>Kanban di prelievo (o movimentazione)</b>: autorizza a spostare un contenitore dal supermarket alla linea. Gira solo tra supermarket e bordo linea.',
+ cycT:'Il ciclo, passo per passo',
+ cyc:['A bordo linea, quando si inizia a usare un contenitore, il suo kanban W viene staccato e messo nella cassetta dei kanban W.','A intervalli regolari il Mizusumashi raccoglie i kanban W e i contenitori vuoti e va al supermarket del reparto a monte.','Per ogni kanban W prende un contenitore pieno dello stesso codice: stacca il kanban P e lo mette nella cassetta del reparto, attacca il kanban W al suo posto e lascia il vuoto.','Riporta i pieni a bordo linea.','Il reparto produce seguendo i kanban P nell\'ordine di arrivo. Il pezzo finito torna nel supermarket con il suo kanban P.'],
+ rulT:'Tre regole',rul:['Niente kanban, niente produzione e niente trasporto.','Ogni contenitore pieno porta sempre un cartellino: il numero di cartellini è il tetto delle scorte.','Il kanban P non esce mai dall\'anello di produzione; il kanban W non entra mai nel reparto.'],
+ forT:'Quanti cartellini?',forD:'D = domanda del codice · L = lead time dell\'anello · α = margine di sicurezza (10%) · a = pezzi per contenitore (1)',
+ forDem:'Ogni codice è richiesto in media una volta ogni 32 s (takt 8 s × 4 animali).',estNote:'I lead time qui sotto sono stime: li verificherete con i dati del round 2.',measNote:'Lead time misurati nel round 2.',
+ f_calc:'calcolo',f_n:'cartellini',f_your:'La vostra scelta',capNow:n=>'Scorta massima con questa scelta: '+n+' contenitori.',
+ start2:'Inizia il round 2',start3:'Inizia il round 3',
+ retroTitle:'Retrospettiva',retroLead:'Guardate dove la linea si è fermata, ricalcolate i cartellini e scegliete che cosa migliorare.',
+ i_short:(x,s)=>'Mancante più grave: '+x+', linea ferma per '+s+' s.',i_noShort:'Nessun mancante: la linea non si è mai fermata. Potete togliere cartellini?',
+ i_serv:p=>'Ordini evasi senza attesa: '+p+'%.',i_alpha:'La formula usa la domanda media. Con ordini casuali la domanda di un codice oscilla molto: o alzate α (più cartellini), oppure riducete la variabilità.',
+ chooseImp:'Scegliete fino a 2 miglioramenti',maxImp:'Al massimo 2: toglietene uno per sceglierne un altro.',
+ imp_heijunka:'Heijunka',imp_heijunka_d:'Livella la sequenza degli ordini all\'assemblaggio: mucca, pecora, cavallo, papera e così via.',
+ imp_pitch:'Giri più frequenti',imp_pitch_d:'Il Mizusumashi parte ogni 10 s invece di 20: si accorcia L_W.',
+ imp_smed:'SMED',imp_smed_d:'Cambio tipo nei reparti ridotto del 70%: si accorcia L_P.',
+ imp_std:'Lavoro standard',imp_std_d:'Tempi di costruzione molto più regolari: la variabilità scende da ±25% a ±8%.',
+ adjust:'Regolate i cartellini',notes:'Note della squadra (facoltative)',
+ dbTitle:'Debriefing',cmp:'Confronto tra i round',h_round:'Round',h_pts:'Punti',h_done:'Spediti',h_bl:'Non evasi',h_wip:'Scorta finale',h_lead:'Lead time',h_serv:'Senza attesa',h_cards:'Cartellini',ptsChart:'Punti per round',
+ insTitle:'Che cosa dicono i dati',d1:(a,b)=>'Dal push al kanban: scorta finale da '+a+' a '+b+' contenitori.',d2:(a,b)=>'Animali spediti: '+a+' nel round 1, '+b+' nel round 3.',d3:(a,b)=>'Lead time dell\'ordine: '+a+' s nel round 2, '+b+' s nel round 3.',
+ d_heij:'Con la heijunka la domanda di ogni codice diventa regolare: bastano i cartellini della formula con α = 10%.',d_noheij:'Senza livellamento servono cartellini in più per coprire i picchi: è il motivo per cui Toyota tiene α sotto il 10% solo dopo aver livellato.',
+ qTitle:'Domande per la discussione',
+ q:['Nel round 1 i reparti erano sempre occupati: perché sono stati spediti così pochi animali?','Nel sistema kanban, chi autorizza la produzione? E chi autorizza il trasporto?','Perché servono due cartellini diversi? Che cosa succederebbe con uno solo?','Che relazione c\'è tra numero di cartellini e scorta massima?','La formula bastava a evitare i mancanti? Che cosa copre il margine α?','Quale miglioramento vi ha permesso di togliere cartellini, e perché?','Che cosa succede a valle se il Mizusumashi salta un giro?'],
+ lTitle:'Cosa portarsi a casa',
+ l:['In push l\'utilizzo è alto e le scorte crescono, ma i mancanti restano: si produce il mix sbagliato.','Due anelli: il kanban P autorizza a produrre, il kanban W autorizza a movimentare. Si incontrano solo al supermarket.','Il numero di cartellini fissa la scorta massima di ogni codice.','N = D · L · (1 + α) / a: per togliere cartellini si accorcia il lead time o si riduce la variabilità.','Il livellamento (heijunka) è il presupposto del kanban, non un accessorio.','Togliere un cartellino alla volta fa emergere i problemi: è il kanban come strumento di kaizen.'],
+ copy:'Copia i risultati',copied:'Copiato negli appunti.',copyFail:'Copia non riuscita: seleziona il testo qui sotto.',restart:'Nuova partita',team:'Squadra',none:'nessuno',impL:'Miglioramenti',roleL:'Ruolo'
+},
+en:{
+ title:'LEGO Farm: two-card kanban',kicker:'Serious game · Lean production',
+ lead:'Three departments build legs, bodies and heads; a supermarket separates them from final assembly. Discover how two cards, one for production and one for withdrawal, run the whole plant with no central schedule.',
+ t_cow:'Cow',t_horse:'Horse',t_sheep:'Sheep',t_duck:'Duck',ab_cow:'Co',ab_horse:'Ho',ab_sheep:'Sh',ab_duck:'Du',
+ c_legs:'Legs',c_body:'Body',c_head:'Head',d_legs:'Legs department',d_body:'Body department',d_head:'Head department',
+ howTitle:'Three rounds',bomT:'Bill of materials',bomD:'Each animal is made of exactly these bricks: the drawings in the game show them one by one. The more bricks in a component, the longer it takes.',
+ r1t:'Push',r1d:'Departments build to forecast, always flat out. The Mizusumashi brings the line whatever it finds.',
+ r2t:'Two-card kanban',r2d:'Decide how many production (P) and withdrawal (W) kanban to circulate. Nothing is made or moved without a card.',
+ r3t:'Kaizen',r3d:'Measure the lead time of both loops, recompute the cards and choose two improvements.',
+ roleTitle:'Choose your role',
+ role_legs:'Legs department',role_legs_d:'You build the legs. Each piece takes time, and the time changes at every run.',
+ role_mizu:'Mizusumashi',role_mizu_d:'You run between line and supermarket and swap the cards. The best role for understanding the two loops.',
+ role_obs:'Observer',role_obs_d:'Fully automatic: ideal to project in class and comment on.',
+ setTitle:'Settings',dur:'Length of each round',speed:'Speed',teamName:'Team name (optional)',min:n=>n+' minutes',start1:'Start round 1',
+ scoring:'Scoring: +10 per animal shipped, −5 per unfilled order at the end of the round, −1 per container of stock left in the plant.',
+ demand:'The customer orders one animal every 8 seconds (takt time).',
+ credit:'Inspired by the <a href="https://www.organizeagile.com/update/lego-kanban-game" target="_blank" rel="noopener">Lego Animal Farm Kanban Game</a> by Organize Agile; two-card cycle after Monden, <i>Toyota Production System</i>.',
+ round:'Round',shipped:'Shipped',waiting:'Orders waiting',stock:'Stock',pause:'Pause',resume:'Resume',endRound:'End the round',paused:'Game paused',
+ z_dept:'Departments',z_super:'Supermarket',z_mizu:'Mizusumashi',z_line:'Line side',z_asm:'Final assembly',
+ you:'You',animOn:'Animations: on',animOff:'Animations: off',postP:'P kanban post',postW:'W kanban post',emptiesL:'Empties',ci_legs:'L',ci_body:'B',ci_head:'H',kPn:'Production kanban',kWn:'Withdrawal kanban',cFull:'Full',cW:'W kanban in hand',stopS:'supermarket stop',stopL:'line-side stop',swapCap:x=>'Swap '+x+': detach P, attach W',legend:(a,b)=>'How to read the cards: '+a+' production kanban for Cow Legs · '+b+' withdrawal kanban for Duck Body. L = legs, B = body, H = head.',
+ idle:'Idle: no kanban',idlePush:'Waiting',working:'Building',setup:x=>'changeover +'+x+' s',last:(d,m)=>'last piece: '+d+' s (standard '+m+' s)',
+ toSuper:'Supermarket',toLine:'Line',onCart:'On the cart',wInHand:n=>'W kanban in hand: '+n,nextTrip:s=>'next run in '+s+' s',
+ m_deliver:'Delivering to the line',m_collect:'Collecting W kanban and empties',m_goSuper:'Going to the supermarket',m_goLine:'Returning to the line',m_swap:'Swapping the cards',m_loadAll:'Loading containers',m_wait:'Waiting for the next run',m_idle:'Idle',
+ asmWork:x=>'Assembling: '+x,asmWait:'Waiting for orders',asmStarve:'Line stopped. Missing:',next:'Next orders',truck:'Shipped',
+ b_take:'Take the P kanban and build',b_deliver:'Deliver full containers',b_collect:'Collect W kanban and empties',b_goSuper:'Go to the supermarket',b_swap:'Swap P ↔ W',b_loadAll:'Load the containers',b_goLine:'Return to the line',
+ h_legsPush:'No card: you decide what to build, based on the forecast.',h_noCard:'Post empty: no kanban, no production.',h_nextCard:x=>'Next kanban in the post: '+x+'.',h_building:(x,s)=>'Building '+x+'… '+s+' s to go.',
+ h_m_busy:(x,s)=>x+'… '+s+' s.',h_m_line:'You are at the line side.',h_m_super:'You are at the supermarket.',h_m_noMatch:'No swap possible: the parts requested are not in the supermarket.',h_obs:'Observer mode: the plant runs by itself.',
+ e_made:(o,x,k)=>o+' puts '+x+' in the supermarket'+(k?' with its P kanban':''),e_pTake:x=>'P kanban taken from the post: '+x,e_swap:x=>'Swap on '+x+': P kanban to the department post, W kanban on the container',
+ e_mGo:n=>'The Mizusumashi leaves for the supermarket with '+n+' W kanban',e_mCollect:n=>'Collected '+n+' W kanban and empties',e_mDeliver:n=>'Delivered '+n+' containers to the line',e_mLoad:n=>'Loaded '+n+' containers',e_short:x=>'Missing at the line: '+x,e_ship:x=>'Shipped: '+x,
+ sumTitle:n=>'End of round '+n,pts:'Points',row_done:'Animals shipped',row_bl:'Unfilled orders',row_wip:'Containers of stock',total:'Total',
+ m_lead:'Order lead time',m_leadS:'from order to shipment',m_serv:'Orders with no wait',m_servS:'parts already at the line',m_wip:'Average stock',m_wipS:'containers in the plant',m_trips:'Mizusumashi runs',m_tripsS:n=>n+' card swaps',sec:'s',
+ ch_inv:'Stock over time (containers)',ch_bl:'Orders waiting over time',l_sup:'Supermarket',l_line:'Line side',l_tr:'On the cart',cap:n=>'card ceiling: '+n,
+ util:'Resource utilisation',famT:'The two loops, measured',f_fam:'Family',f_LP:'Mean L_P',f_LW:'Mean L_W',f_short:'Line stopped for shortage',
+ pushNote:(u,w,d)=>'Departments busy '+u+'% of the time and '+w+' containers of stock, yet only '+d+' animals shipped. A lot was made, but not what was needed.',
+ kanNote:(c,w)=>'With '+c+' cards in circulation, stock cannot exceed '+c+' containers: at the end of the round there were '+w+'.',
+ next1:'Go to the intermezzo',next2:'Go to the retrospective',next3:'Go to the debrief',
+ imTitle:'Intermezzo: the two-card system',
+ loopP:'Production loop',loopW:'Withdrawal loop',lp1:'P kanban to the department post',lp2:'part + P kanban',lw1:'W kanban + empty container',lw2:'full + W kanban',swapHere:'swap P ↔ W',
+ kP:'<span class="kc p">P</span> <b>Production kanban</b>: authorises the department to make one container. It only travels between department and supermarket.',
+ kW:'<span class="kc w">W</span> <b>Withdrawal (conveyance) kanban</b>: authorises moving one container from the supermarket to the line. It only travels between supermarket and line side.',
+ cycT:'The cycle, step by step',
+ cyc:['At the line side, when a container starts being used, its W kanban is detached and put in the W kanban post.','At regular intervals the Mizusumashi collects the W kanban and the empty containers and goes to the upstream supermarket.','For each W kanban it takes a full container of the same part: it detaches the P kanban and puts it in the department post, attaches the W kanban in its place and leaves the empty.','It brings the full containers back to the line.','The department builds following the P kanban in order of arrival. The finished part returns to the supermarket with its P kanban.'],
+ rulT:'Three rules',rul:['No kanban, no production and no conveyance.','Every full container always carries a card: the number of cards is the stock ceiling.','The P kanban never leaves the production loop; the W kanban never enters the department.'],
+ forT:'How many cards?',forD:'D = demand for the part · L = loop lead time · α = safety margin (10%) · a = pieces per container (1)',
+ forDem:'Each part is needed on average once every 32 s (takt 8 s × 4 animals).',estNote:'The lead times below are estimates: you will check them against round 2 data.',measNote:'Lead times measured in round 2.',
+ f_calc:'calculation',f_n:'cards',f_your:'Your choice',capNow:n=>'Maximum stock with this choice: '+n+' containers.',
+ start2:'Start round 2',start3:'Start round 3',
+ retroTitle:'Retrospective',retroLead:'See where the line stopped, recompute the cards and choose what to improve.',
+ i_short:(x,s)=>'Worst shortage: '+x+', line stopped for '+s+' s.',i_noShort:'No shortages: the line never stopped. Can you remove cards?',
+ i_serv:p=>'Orders filled with no wait: '+p+'%.',i_alpha:'The formula uses average demand. With random orders the demand for one part swings widely: either raise α (more cards) or reduce variability.',
+ chooseImp:'Choose up to 2 improvements',maxImp:'Two at most: remove one to choose another.',
+ imp_heijunka:'Heijunka',imp_heijunka_d:'Level the order sequence at assembly: cow, sheep, horse, duck and so on.',
+ imp_pitch:'More frequent runs',imp_pitch_d:'The Mizusumashi leaves every 10 s instead of 20: L_W gets shorter.',
+ imp_smed:'SMED',imp_smed_d:'Changeover in the departments cut by 70%: L_P gets shorter.',
+ imp_std:'Standard work',imp_std_d:'Much more regular build times: variability drops from ±25% to ±8%.',
+ adjust:'Tune the cards',notes:'Team notes (optional)',
+ dbTitle:'Debrief',cmp:'Rounds compared',h_round:'Round',h_pts:'Points',h_done:'Shipped',h_bl:'Unfilled',h_wip:'Final stock',h_lead:'Lead time',h_serv:'No wait',h_cards:'Cards',ptsChart:'Points per round',
+ insTitle:'What the data says',d1:(a,b)=>'From push to kanban: final stock from '+a+' to '+b+' containers.',d2:(a,b)=>'Animals shipped: '+a+' in round 1, '+b+' in round 3.',d3:(a,b)=>'Order lead time: '+a+' s in round 2, '+b+' s in round 3.',
+ d_heij:'With heijunka the demand for each part becomes regular: the cards from the formula with α = 10% are enough.',d_noheij:'Without levelling you need extra cards to cover the peaks: this is why Toyota keeps α below 10% only after levelling.',
+ qTitle:'Discussion questions',
+ q:['In round 1 the departments were always busy: why were so few animals shipped?','In the kanban system, who authorises production? And who authorises conveyance?','Why two different cards? What would happen with only one?','How are the number of cards and maximum stock related?','Was the formula enough to avoid shortages? What does the α margin cover?','Which improvement let you remove cards, and why?','What happens downstream if the Mizusumashi skips a run?'],
+ lTitle:'Takeaways',
+ l:['In push, utilisation is high and stock grows, yet shortages remain: the wrong mix gets built.','Two loops: the P kanban authorises production, the W kanban authorises conveyance. They only meet at the supermarket.','The number of cards sets the maximum stock of each part.','N = D · L · (1 + α) / a: to remove cards, shorten the lead time or reduce variability.','Levelling (heijunka) is a prerequisite of kanban, not an extra.','Removing one card at a time exposes problems: kanban as a kaizen tool.'],
+ copy:'Copy the results',copied:'Copied to the clipboard.',copyFail:'Copy failed: select the text below.',restart:'New game',team:'Team',none:'none',impL:'Improvements',roleL:'Role'
+}};
+const OPS={legs:'Luca',body:'Giulia',head:'Marco',asm:'Sara',mizu:'Anna'};
+const IMPS=['heijunka','pitch','smed','std'];
+const DUR_OPTS=[120,180,240,300];
+const EST={LP:{legs:4,body:10,head:4},LW:{legs:34,body:34,head:34}};
+const ALPHA=0.1;
+const U={screen:'intro',lang:'it',cfg:{dur:180,speed:1,team:'',role:'legs'},nP:{legs:2,body:2,head:2},nW:{legs:2,body:2,head:2},imp:[],notes:'',results:[],round:1,seed:1,anim:true};
+let sim=null,paused=false,lastNow=performance.now();
+const cache={};
+const $=s=>document.querySelector(s);
+const t=(k,...a)=>{const v=TXT[U.lang][k]!==undefined?TXT[U.lang][k]:TXT.it[k];return typeof v==='function'?v(...a):(v===undefined?k:v);};
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clock=s=>{s=Math.max(0,Math.ceil(s));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');};
+const nf=(x,d)=>x==null||isNaN(x)?'–':Number(x).toLocaleString(U.lang==='it'?'it-IT':'en-GB',{maximumFractionDigits:d==null?1:d,minimumFractionDigits:0});
+const tn=ty=>t('t_'+ty);
+const pnName=p=>{const a=p.split('-');return t('c_'+a[0])+' '+tn(a[1]);};
+const opName=k=>(sim&&sim.S.human===k)?t('you'):OPS[k];
+const reduceMotion=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const full=(ty,w)=>drawModel(ty,{w});
+const CART='<svg viewBox="0 0 40 24" width="40" height="24" aria-hidden="true"><rect x="3" y="4" width="26" height="12" rx="1.5" fill="#3d5a80" stroke="'+INK+'"/><path d="M29 14h8" stroke="'+INK+'" stroke-width="2"/><circle cx="10" cy="19" r="3.4" fill="'+INK+'"/><circle cx="24" cy="19" r="3.4" fill="'+INK+'"/></svg>';
+const capOf=()=>4*COMPS.reduce((s,c)=>s+U.nP[c]+U.nW[c],0);
+
+/* ---------- Partita ---------- */
+function newRound(n){
+  U.round=n;paused=false;
+  sim=makeSim({mode:n===1?'push':'kanban',dur:U.cfg.dur,seqSeed:U.seed,nP:Object.assign({},U.nP),nW:Object.assign({},U.nW),imp:n===3?U.imp.slice():[],human:U.cfg.role==='obs'?null:U.cfg.role});
+  go('game');
+}
+function finishRound(){
+  const r=sim.result();r.round=U.round;U.results[U.round-1]=r;go('summary');
+}
+const hidden=new Set(),pendingM=[];let swapTok=0;
+const hid=k=>hidden.has(k)?' hid':'';
+const code=p=>{const a=p.split('-');return t('ci_'+a[0])+'·'+t('ab_'+a[1]);};
+function cardHTML(k,pn,id,noHide){return'<span class="kc '+(k==='P'?'p':'w')+(noHide?'':hid('k'+id))+'" title="'+esc(t(k==='P'?'kPn':'kWn')+': '+pnName(pn))+'"><b>'+k+'</b>'+code(pn)+'</span>';}
+function partHTML(pn){const a=pn.split('-');return drawModel(a[1],{only:a[0],w:a[0]==='head'?13:22});}
+function boxHTML(c,noHide){return'<span class="cw'+(noHide?'':hid('c'+c.id))+'"><span class="ct">'+partHTML(c.pn)+'</span>'+(c.card?cardHTML(c.card.k,c.pn,c.card.id,noHide):'')+'</span>';}
+const EMPTY='<span class="ct e"></span>';
+function boxes(list,max){let h=list.slice(0,max).map(c=>boxHTML(c)).join('');if(list.length>max)h+='<span class="more">+'+(list.length-max)+'</span>';return h;}
+function empties(n){return n?Array(Math.min(n,6)).fill(EMPTY).join('')+(n>6?'<span class="more">+'+(n-6)+'</span>':''):'<span class="muted mini">—</span>';}
+function gridHTML(store,pre,alert){
+  let h='<div class="grid"><span></span>'+TYPES.map(ty=>'<span class="gh">'+full(ty,26)+'<br>'+tn(ty)+'</span>').join('');
+  COMPS.forEach(c=>{h+='<span class="gr">'+t('c_'+c)+'</span>';TYPES.forEach(ty=>{const p=c+'-'+ty;h+='<span class="gc'+(alert&&alert.includes(p)?' alert':'')+'" id="'+pre+p+'" title="'+esc(pnName(p))+'">'+boxes(store[p],3)+'</span>';});});
+  return h+'</div>';
+}
+function deptHTML(c){
+  const S=sim.S,cell=S.cells[c],j=cell.job,you=S.human===c,kan=S.mode==='kanban';
+  let h='<div class="dept'+(you?' you':'')+'"><div class="dh"><span>'+t('d_'+c)+'</span><small>'+opName(c)+'</small></div>';
+  if(kan)h+='<div class="post" id="post-'+c+'"><span class="pl">'+t('postP')+'</span>'+cell.post.slice(0,6).map(cd=>cardHTML('P',cd.pn,cd.id)).join('')+(cell.post.length>6?'<span class="more">+'+(cell.post.length-6)+'</span>':'')+'</div>';
+  if(j){const pct=1-Math.max(0,j.rem)/j.dur;
+    h+='<div class="jl"><span class="st-work">'+t('working')+': '+pnName(j.pn)+'</span><span>'+(j.setup?t('setup',nf(j.setup,1)):'')+'</span></div><div class="build" id="mach-'+c+'">'+drawModel(j.type,{only:c,n:Math.floor(pct*MODEL[j.type][c].length+1e-6),w:c==='head'?30:54})+(j.card?cardHTML('P',j.pn,j.card.id):'')+'</div><span class="bar"><b style="width:'+Math.round(pct*100)+'%"></b></span>';
+  } else h+='<div class="jl"><span class="st-idle">'+(kan?t('idle'):t('idlePush'))+'</span></div><div class="build" id="mach-'+c+'"></div><span class="bar"><b style="width:0"></b></span>';
+  h+='<span class="last">'+(cell.last?t('last',nf(cell.last.dur,1),nf(cell.last.mean+cell.last.setup,1)):'&nbsp;')+'</span>';
+  if(kan)h+='<div class="ebox" id="dbox-'+c+'"><span class="pl">'+t('emptiesL')+'</span>'+empties(cell.boxes)+'</div>';
+  return h+'</div>';
+}
+function evText(e){
+  const a=e.a;
+  switch(e.k){
+    case'made':return t('e_made',opName(a[0].split('-')[0]),pnName(a[0]),a[2]);
+    case'pTake':return t('e_pTake',pnName(a[0]));
+    case'swap':return t('e_swap',pnName(a[0]));
+    case'short':return t('e_short',pnName(a[0]));
+    case'ship':return t('e_ship',tn(a[0]));
+    default:return t('e_'+e.k,a[0]);
+  }
+}
+/* --- cartellini e contenitori in volo --- */
+function center(id){const el=document.getElementById(id);if(!el)return null;const r=el.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2};}
+function fly(html,from,to,ms,delay){
+  if(!U.anim)return;const a=center(from),b=center(to),layer=document.getElementById('flylayer');if(!a||!b||!layer)return;
+  const el=document.createElement('div');el.className='fly';el.innerHTML=html;el.style.left=a.x+'px';el.style.top=a.y+'px';layer.appendChild(el);
+  const an=el.animate([{transform:'translate(-50%,-50%) scale(1.25)'},{transform:'translate(calc(-50% + '+(b.x-a.x)+'px),calc(-50% + '+(b.y-a.y)+'px)) scale(1.25)'}],{duration:ms,delay:delay||0,easing:'ease-in-out',fill:'both'});
+  an.onfinish=()=>el.remove();
+}
+const wall=s=>Math.max(280,s*1000/U.cfg.speed);
+function hideFor(keys,ms){if(!U.anim)return;keys.forEach(k=>hidden.add(k));setTimeout(()=>keys.forEach(k=>hidden.delete(k)),ms);}
+function hideM(k){if(!U.anim)return;hidden.add(k);pendingM.push(k);}
+function handleEv(e){
+  switch(e.k){
+    case'consume':e.items.forEach(it=>{fly('<span class="ct">'+partHTML(it.pn)+'</span>','ln-'+it.pn,'asm-now',wall(.7));
+      if(it.kid!=null){hideFor(['k'+it.kid],wall(.7));fly(cardHTML('W',it.pn,it.kid,true),'ln-'+it.pn,'wpost',wall(.7));}});break;
+    case'prodStart':hideFor(['k'+e.kid],wall(.45));fly(cardHTML('P',e.pn,e.kid,true),'post-'+e.c,'mach-'+e.c,wall(.45));break;
+    case'prodDone':hideFor(['c'+e.cid],wall(.7));fly(boxHTML({id:e.cid,pn:e.pn,card:e.kid!=null?{k:'P',id:e.kid}:null},true),'mach-'+e.c,'sp-'+e.pn,wall(.7));break;
+    case'collectStart':{const D=wall(e.dur),n=Math.max(1,e.items.length);e.items.forEach((it,i)=>{hideM('k'+it.kid);fly(cardHTML('W',it.pn,it.kid,true),'wpost','cart',D*.6,i*D*.4/n);});fly(EMPTY,'lbox','cart',D*.8);break;}
+    case'deliverStart':{const D=wall(e.dur),n=Math.max(1,e.items.length);e.items.forEach((it,i)=>{hideM('c'+it.cid);fly(boxHTML({id:it.cid,pn:it.pn,card:it.kid!=null?{k:'W',id:it.kid}:null},true),'cart','ln-'+it.pn,D*.6,i*D*.4/n);});break;}
+    case'loadStart':{const D=wall(e.dur),n=Math.max(1,e.items.length);e.items.forEach((it,i)=>{hideM('c'+it.cid);fly(boxHTML({id:it.cid,pn:it.pn,card:null},true),'sp-'+it.pn,'cart',D*.6,i*D*.4/n);});break;}
+    case'swapStart':{const D=wall(e.dur),c=e.pn.split('-')[0],tok=++swapTok;
+      hideM('k'+e.pk);hideM('k'+e.wk);
+      fly(cardHTML('P',e.pn,e.pk,true),'sp-'+e.pn,'post-'+c,D*.48);fly(cardHTML('W',e.pn,e.wk,true),'cart','sp-'+e.pn,D*.48);
+      setTimeout(()=>{if(tok!==swapTok||!pendingM.length)return;hideM('c'+e.fc);
+        fly(boxHTML({id:e.fc,pn:e.pn,card:{k:'W',id:e.wk}},true),'sp-'+e.pn,'cart',D*.45);fly(EMPTY,'cart','dbox-'+c,D*.45);},D*.5);break;}
+    case'mDone':pendingM.forEach(k=>hidden.delete(k));pendingM.length=0;break;
+  }
+}
+function clearFx(){hidden.clear();pendingM.length=0;swapTok++;const l=document.getElementById('flylayer');if(l)l.innerHTML='';}
+function gameSkeleton(){
+  const S=sim.S,name=t('r'+U.round+'t'),role=U.cfg.role,kan=S.mode==='kanban';
+  let h='<section><div class="hud"><span class="pill">'+t('round')+' '+U.round+'/3 · '+name+'</span><span class="clock" id="u-clock"></span>'+
+   '<span class="hstat"><span>'+t('shipped')+'</span><b id="u-ship">0</b></span><span class="hstat"><span>'+t('waiting')+'</span><b id="u-wait">0</b></span><span class="hstat"><span>'+t('stock')+'</span><b id="u-stock">0</b></span><span class="sp"></span>'+
+   '<button class="btn" data-act="anim" id="u-anim"></button><button class="btn" data-act="speed" id="u-spd"></button><button class="btn" data-act="pause" id="u-pz">'+t('pause')+'</button></div>';
+  if(kan)h+='<p class="legendk small">'+t('legend',cardHTML('P','legs-cow',-1,true),cardHTML('W','body-duck',-2,true))+'</p>';
+  h+='<div class="floor">'+
+   '<div class="zone za-dept"><div class="zh"><span class="tape">'+t('z_dept')+'</span></div><div id="z-dept" class="stack" style="gap:8px"></div></div>'+
+   '<div class="zone za-super"><div class="zh"><span class="tape">'+t('z_super')+'</span></div><div id="z-super"></div></div>'+
+   '<div class="zone za-mizu"><div class="zh"><span class="tape">'+t('z_mizu')+'</span><span class="small muted" id="z-trip"></span></div><div class="corr"><span class="stop l">◀ '+t('stopS')+'</span><span class="stop r">'+t('stopL')+' ▶</span><div class="cartp" id="cart"><div id="z-cart"></div></div></div></div>'+
+   '<div class="zone za-line"><div class="zh"><span class="tape">'+t('z_line')+'</span></div><div id="z-line"></div><div id="z-wpost"></div></div>'+
+   '<div class="zone za-asm"><div class="zh"><span class="tape">'+t('z_asm')+'</span></div><div id="z-asm"></div></div></div>'+
+   '<ul class="ticker" id="z-tick" aria-live="off"></ul>';
+  h+='<div class="abar"><div class="acts" id="a-acts">';
+  if(role==='legs'){
+    if(!kan)h+=TYPES.map(ty=>'<button class="btn" data-act="ptype" data-type="'+ty+'" id="b-'+ty+'">'+t('c_legs')+' '+tn(ty)+'</button>').join('');
+    else h+='<button class="btn pk" data-act="take" id="b-take">'+t('b_take')+'</button>';
+  } else if(role==='mizu'){
+    h+='<button class="btn" data-act="m" data-a="deliver" id="b-deliver">'+t('b_deliver')+'</button>';
+    if(kan)h+='<button class="btn wk" data-act="m" data-a="collect" id="b-collect">'+t('b_collect')+'</button>';
+    h+='<button class="btn" data-act="m" data-a="goSuper" id="b-goSuper">'+t('b_goSuper')+'</button>';
+    h+=kan?'<button class="btn pk" data-act="m" data-a="swap" id="b-swap">'+t('b_swap')+'</button>':'<button class="btn" data-act="m" data-a="loadAll" id="b-loadAll">'+t('b_loadAll')+'</button>';
+    h+='<button class="btn" data-act="m" data-a="goLine" id="b-goLine">'+t('b_goLine')+'</button>';
+  }
+  h+='</div>'+(role!=='obs'?'<span class="bar" id="a-bar"><b style="width:0"></b></span>':'')+'<p class="hint" id="a-hint"></p></div>';
+  h+='<div class="pause-ov" id="u-pov" hidden><div class="panel"><h2>'+t('paused')+'</h2><button class="btn primary" data-act="pause">'+t('resume')+'</button><button class="btn" data-act="endnow">'+t('endRound')+'</button></div></div></section>';
+  return h;
+}
+function setHTML(id,html){if(cache[id]===html)return;cache[id]=html;const el=document.getElementById(id);if(el)el.innerHTML=html;}
+function setText(id,x){const el=document.getElementById(id);if(el&&el.textContent!==x)el.textContent=x;}
+function setDis(id,d){const el=document.getElementById(id);if(el&&el.disabled!==d)el.disabled=d;}
+function setBar(p){const el=document.querySelector('#a-bar b');if(el)el.style.width=Math.round(p*100)+'%';}
+function updateGame(){
+  if(!sim||U.screen!=='game')return;
+  const S=sim.S,rem=S.dur-S.t,ck=document.getElementById('u-clock'),kan=S.mode==='kanban';
+  if(ck){ck.textContent=clock(rem);ck.classList.toggle('low',rem<=15);}
+  setText('u-ship',String(S.delivered.length));setText('u-wait',String(S.queue.length));setText('u-stock',String(sim.wip()));
+  setText('u-spd',U.cfg.speed+'×');setText('u-anim',t(U.anim?'animOn':'animOff'));
+  const pov=document.getElementById('u-pov');if(pov)pov.hidden=!paused;
+  setHTML('z-dept',COMPS.map(deptHTML).join(''));
+  setHTML('z-super',gridHTML(S.super,'sp-'));
+  setHTML('z-line',gridHTML(S.line,'ln-',S.asm.missing));
+  if(kan)setHTML('z-wpost','<div class="post w" id="wpost"><span class="pl">'+t('postW')+'</span>'+S.empties.slice(0,9).map(c=>cardHTML('W',c.pn,c.card.id)).join('')+(S.empties.length>9?'<span class="more">+'+(S.empties.length-9)+'</span>':'')+'</div><div class="ebox" id="lbox"><span class="pl">'+t('emptiesL')+'</span>'+empties(S.empties.length)+'</div>');
+  const M=S.mizu,ak=M.act?M.act.kind:null,cart=document.getElementById('cart');
+  if(cart)cart.style.setProperty('--pos',M.pos.toFixed(3));
+  let cap=ak?t('m_'+ak):t('m_idle');
+  if(ak==='swap'&&M.act.data)cap=t('swapCap',code(M.act.data.f.pn));
+  let mh='<div class="carth">'+CART+'<span><b>'+opName('mizu')+'</b><br><span class="capt">'+cap+'</span></span></div>'+
+    '<div class="cl"><span class="pl">'+t('cFull')+'</span>'+(M.full.length?M.full.map(c=>boxHTML(c)).join(''):'<span class="muted mini">—</span>')+'</div>';
+  if(kan)mh+='<div class="cl"><span class="pl">'+t('cW')+'</span>'+(M.empty.length?M.empty.map(c=>cardHTML('W',c.pn,c.card.id)).join(''):'<span class="muted mini">—</span>')+'</div><div class="cl"><span class="pl">'+t('emptiesL')+'</span>'+empties(M.empty.length)+'</div>';
+  setHTML('z-cart',mh);
+  setText('z-trip',(S.human!=='mizu'&&M.loc==='line'&&ak==='wait')?t('nextTrip',Math.max(0,Math.ceil(M.nextDepart-S.t))):'');
+  const A=S.asm;let ah='<div id="asm-now">';
+  if(A.job)ah+='<div class="jl"><span class="st-work">'+t('asmWork',tn(A.job.order.type))+'</span></div><div>'+full(A.job.order.type,64)+'</div><span class="bar"><b style="width:'+Math.round((1-Math.max(0,A.job.rem)/A.job.dur)*100)+'%"></b></span>';
+  else if(A.missing.length&&S.queue.length)ah+='<p class="alarm">'+t('asmStarve')+' '+A.missing.map(pnName).join(', ')+'</p><div>'+drawModel(S.queue[0].type,{w:64,have:COMPS.filter(c=>!A.missing.includes(c+'-'+S.queue[0].type))})+'</div><span class="bar"><b style="width:0"></b></span>';
+  else ah+='<div class="jl"><span class="st-idle">'+t('asmWait')+'</span></div><div style="height:48px"></div><span class="bar"><b style="width:0"></b></span>';
+  ah+='</div><p class="mini muted" style="margin-top:8px">'+t('next')+' ('+S.queue.length+')</p><div class="orders">'+(S.queue.length?S.queue.slice(0,6).map(o=>full(o.type,34)).join('')+(S.queue.length>6?'<span class="more">+'+(S.queue.length-6)+'</span>':''):'<span class="muted mini">—</span>')+'</div>'+
+    '<p class="mini muted" style="margin-top:6px">'+t('truck')+': <b style="color:var(--ink)">'+S.delivered.length+'</b></p><div class="orders">'+S.delivered.slice(-5).map(o=>full(o.type,30)).join('')+'</div>';
+  setHTML('z-asm',ah);
+  setHTML('z-tick',S.log.slice(-4).reverse().map(e=>'<li><time>'+clock(e.t)+'</time>'+esc(evText(e))+'</li>').join(''));
+  const role=U.cfg.role;let hint='';
+  if(role==='legs'){
+    const cell=S.cells.legs,j=cell.job;
+    if(!kan)TYPES.forEach(ty=>setDis('b-'+ty,!!j||paused));
+    else setDis('b-take',!!sim.can('legs','produce')||paused);
+    setBar(j?1-Math.max(0,j.rem)/j.dur:0);
+    if(j)hint=t('h_building',pnName(j.pn),nf(Math.max(0,j.rem),1));
+    else if(!kan)hint=t('h_legsPush');
+    else hint=cell.post.length?t('h_nextCard',pnName(cell.post[0].pn)):t('h_noCard');
+  } else if(role==='mizu'){
+    ['deliver','collect','goSuper','swap','loadAll','goLine'].forEach(a=>setDis('b-'+a,!!sim.can('mizu',a)||paused));
+    setBar(M.act?1-Math.max(0,M.act.rem)/M.act.dur:0);
+    if(M.act)hint=t('h_m_busy',t('m_'+M.act.kind),nf(Math.max(0,M.act.rem),1));
+    else if(M.loc==='super'&&kan&&M.empty.length&&!sim.findSwap())hint=t('h_m_noMatch');
+    else hint=M.loc==='line'?t('h_m_line'):t('h_m_super');
+  } else hint=t('h_obs');
+  setText('a-hint',hint);
+}
+
+/* ---------- Grafici ---------- */
+function niceStep(max){const c=[1,2,5,10,20,25,50,100];for(const s of c)if(max/s<=6)return s;return 200;}
+function invSVG(r){
+  const sm=r.samples;if(!sm.length)return'';
+  const W=640,H=230,pl=36,pr=12,pt=14,pb=30,tmax=r.dur;
+  const mx=Math.max(r.cards||0,...sm.map(s=>s.sup+s.line+s.tr),5),st=niceStep(mx),ymax=Math.ceil(mx/st)*st;
+  const X=v=>pl+(Math.min(v,tmax)/tmax)*(W-pl-pr),Y=v=>pt+(1-v/ymax)*(H-pt-pb);
+  let o='';
+  for(let v=0;v<=ymax;v+=st)o+='<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+Y(v)+'" y2="'+Y(v)+'" class="g"/><text x="'+(pl-6)+'" y="'+(Y(v)+4)+'" text-anchor="end" class="ax">'+v+'</text>';
+  const xs=tmax>180?60:30;for(let v=0;v<=tmax;v+=xs)o+='<text x="'+X(v)+'" y="'+(H-10)+'" text-anchor="middle" class="ax">'+clock(v)+'</text>';
+  const lay=[[s=>s.sup+s.line+s.tr,'--a-tr'],[s=>s.sup+s.line,'--a-line'],[s=>s.sup,'--a-sup']];
+  const last=sm[sm.length-1];
+  lay.forEach(l=>{o+='<polygon points="'+X(sm[0].t)+','+Y(0)+' '+sm.map(s=>X(s.t).toFixed(1)+','+Y(l[0](s)).toFixed(1)).join(' ')+' '+X(last.t)+','+Y(0)+'" style="fill:var('+l[1]+')"/>';});
+  if(r.cards)o+='<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+Y(r.cards)+'" y2="'+Y(r.cards)+'" stroke="'+INK+'" stroke-width="1.5" stroke-dasharray="5 4"/><text x="'+(W-pr-4)+'" y="'+(Y(r.cards)-5)+'" text-anchor="end" class="lbl">'+esc(t('cap',r.cards))+'</text>';
+  o+='<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+Y(0)+'" y2="'+Y(0)+'" class="base"/>';
+  return'<svg viewBox="0 0 '+W+' '+H+'" class="chart" role="img" aria-label="'+esc(t('ch_inv'))+'">'+o+'</svg><div class="legend"><span><i style="background:var(--a-sup)"></i>'+t('l_sup')+'</span><span><i style="background:var(--a-line)"></i>'+t('l_line')+'</span><span><i style="background:var(--a-tr)"></i>'+t('l_tr')+'</span></div>';
+}
+function blSVG(r){
+  const sm=r.samples;if(!sm.length)return'';
+  const W=640,H=170,pl=36,pr=30,pt=14,pb=30,tmax=r.dur;
+  const mx=Math.max(4,...sm.map(s=>s.bl)),st=niceStep(mx),ymax=Math.ceil(mx/st)*st;
+  const X=v=>pl+(Math.min(v,tmax)/tmax)*(W-pl-pr),Y=v=>pt+(1-v/ymax)*(H-pt-pb);
+  let o='';
+  for(let v=0;v<=ymax;v+=st)o+='<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+Y(v)+'" y2="'+Y(v)+'" class="g"/><text x="'+(pl-6)+'" y="'+(Y(v)+4)+'" text-anchor="end" class="ax">'+v+'</text>';
+  const xs=tmax>180?60:30;for(let v=0;v<=tmax;v+=xs)o+='<text x="'+X(v)+'" y="'+(H-10)+'" text-anchor="middle" class="ax">'+clock(v)+'</text>';
+  const l=sm[sm.length-1];
+  o+='<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+Y(0)+'" y2="'+Y(0)+'" class="base"/><polyline points="'+sm.map(s=>X(s.t).toFixed(1)+','+Y(s.bl).toFixed(1)).join(' ')+'" fill="none" style="stroke:var(--bad)" stroke-width="2.5" stroke-linejoin="round"/><circle cx="'+X(l.t)+'" cy="'+Y(l.bl)+'" r="4" style="fill:var(--bad)"/><text x="'+(X(l.t)+7)+'" y="'+(Y(l.bl)+4)+'" class="lbl">'+l.bl+'</text>';
+  return'<svg viewBox="0 0 '+W+' '+H+'" class="chart" role="img" aria-label="'+esc(t('ch_bl'))+'">'+o+'</svg>';
+}
+function pointsSVG(){
+  const rs=U.results.filter(Boolean);if(!rs.length)return'';
+  const W=520,H=230,pl=44,pr=12,pt=22,pb=34,vals=rs.map(r=>r.points);
+  let vmax=Math.max(10,...vals),vmin=Math.min(0,...vals);const st=niceStep((vmax-vmin))*1;
+  vmax=Math.ceil(vmax/st)*st;vmin=Math.floor(vmin/st)*st;
+  const Y=v=>pt+(vmax-v)/(vmax-vmin)*(H-pt-pb),bw=(W-pl-pr)/3;let o='';
+  for(let v=vmin;v<=vmax;v+=st)o+='<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+Y(v)+'" y2="'+Y(v)+'" class="g"/><text x="'+(pl-6)+'" y="'+(Y(v)+4)+'" text-anchor="end" class="ax">'+v+'</text>';
+  rs.forEach((r,i)=>{const x=pl+i*bw+bw*.22,w=bw*.56,y0=Y(0),y1=Y(r.points),col=r.points<0?'--bad':(i===2?'--accent':'--ink');
+    o+='<rect x="'+x+'" y="'+Math.min(y0,y1)+'" width="'+w+'" height="'+Math.max(1,Math.abs(y1-y0))+'" rx="2" style="fill:var('+col+')"/><text x="'+(x+w/2)+'" y="'+(r.points<0?y1+15:y1-6)+'" text-anchor="middle" class="lbl">'+r.points+'</text><text x="'+(x+w/2)+'" y="'+(H-10)+'" text-anchor="middle" class="ax">'+t('round')+' '+r.round+' · '+t('r'+r.round+'t')+'</text>';});
+  o+='<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+Y(0)+'" y2="'+Y(0)+'" class="base"/>';
+  return'<svg viewBox="0 0 '+W+' '+H+'" class="chart" role="img" aria-label="'+esc(t('ptsChart'))+'">'+o+'</svg>';
+}
+function utilHTML(r){
+  const rows=[['legs',t('d_legs')],['body',t('d_body')],['head',t('d_head')],['asm',t('z_asm')],['mizu',t('z_mizu')]];
+  return rows.map(x=>{const u=Math.round(r.util[x[0]]*100);return'<div class="urow"><span>'+x[1]+'</span><div class="ubar"><b style="width:'+u+'%"></b></div><span class="uval">'+u+'%</span></div>';}).join('');
+}
+function loopSVG(){
+  const b=(x,l)=>'<rect class="bx" x="'+x+'" y="92" width="150" height="50" rx="4"/><text class="bt" x="'+(x+75)+'" y="122" text-anchor="middle">'+esc(l)+'</text>';
+  const arc=(x1,x2,up,col,id)=>'<path d="M'+x1+' '+(up?92:142)+' C'+x1+' '+(up?30:204)+','+x2+' '+(up?30:204)+','+x2+' '+(up?92:142)+'" fill="none" stroke="'+col+'" stroke-width="3" marker-end="url(#'+id+')"/>';
+  const mk=(id,col)=>'<marker id="'+id+'" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="'+col+'"/></marker>';
+  const kp='#d6336c',kw='#1f78c8';
+  return'<svg viewBox="0 0 720 236" class="chart loop" role="img" aria-label="'+esc(t('loopP')+', '+t('loopW'))+'"><defs>'+mk('ap',kp)+mk('aw',kw)+'</defs>'+
+   arc(330,120,true,kp,'ap')+arc(120,330,false,kp,'ap')+arc(600,390,true,kw,'aw')+arc(390,600,false,kw,'aw')+
+   b(20,t('z_dept'))+b(285,t('z_super'))+b(550,t('z_line'))+
+   '<text x="225" y="34" text-anchor="middle">'+esc(t('lp1'))+'</text><text x="225" y="212" text-anchor="middle">'+esc(t('lp2'))+'</text>'+
+   '<text x="495" y="34" text-anchor="middle">'+esc(t('lw1'))+'</text><text x="495" y="212" text-anchor="middle">'+esc(t('lw2'))+'</text>'+
+   '<text x="225" y="16" text-anchor="middle" style="fill:'+kp+';font-weight:700">'+esc(t('loopP'))+'</text><text x="495" y="16" text-anchor="middle" style="fill:'+kw+';font-weight:700">'+esc(t('loopW'))+'</text></svg>';
+}
+
+/* ---------- Schermate ---------- */
+function colName(c){return({it:{k:'nero',w:'bianco',t:'beige',b:'marrone',d:'marrone scuro',r:'rosso',c:'panna',o:'arancione',y:'giallo'},en:{k:'black',w:'white',t:'tan',b:'brown',d:'dark brown',r:'red',c:'cream',o:'orange',y:'yellow'}})[U.lang][c];}
+function bomHTML(){
+  return'<div class="bom">'+TYPES.map(ty=>{
+    let h='<div class="bomc"><div class="bomh">'+full(ty,84)+'<h3>'+tn(ty)+'</h3></div>';
+    COMPS.forEach(c=>{const g={};MODEL[ty][c].forEach(b=>{const k=b.s+'|'+b.c;g[k]=(g[k]||0)+1;});
+      h+='<div class="bomr"><span class="bomp">'+drawModel(ty,{only:c,w:c==='head'?24:40})+'</span><span><b>'+t('c_'+c)+'</b><br>'+Object.keys(g).map(k=>{const a=k.split('|');return'<span class="bomb">'+g[k]+' × '+brickChip(a[0],a[1])+' '+a[0].replace('x','×')+' '+colName(a[1])+'</span>';}).join('')+'</span></div>';});
+    return h+'</div>';}).join('')+'</div>';
+}
+function introHTML(){
+  const rounds=[1,2,3].map(i=>'<div class="panel rcard"><span class="num">'+i+'</span><h3>'+t('r'+i+'t')+'</h3><p>'+t('r'+i+'d')+'</p></div>').join('');
+  const roles=['legs','mizu','obs'].map(r=>'<button class="opt" data-act="role" data-r="'+r+'" aria-pressed="'+(U.cfg.role===r)+'"><b>'+t('role_'+r)+'</b><small>'+t('role_'+r+'_d')+'</small></button>').join('');
+  return'<div class="stack"><section class="two" style="align-items:center"><div><p class="kicker">'+t('kicker')+'</p><h1>'+t('title')+'</h1><p class="lead">'+t('lead')+'</p></div><div class="panel">'+loopSVG()+'<p class="small" style="margin-top:6px">'+t('kP')+'</p><p class="small" style="margin-top:6px">'+t('kW')+'</p></div></section>'+
+   '<section><h2 style="margin-bottom:18px">'+t('howTitle')+'</h2><div class="rounds">'+rounds+'</div></section>'+
+   '<section class="panel"><h3>'+t('bomT')+'</h3><p class="small muted">'+t('bomD')+'</p>'+bomHTML()+'</section>'+
+   '<section class="panel"><h3>'+t('roleTitle')+'</h3><div class="opts c3">'+roles+'</div></section>'+
+   '<section class="two"><div class="panel"><h3>'+t('setTitle')+'</h3>'+
+    '<div class="field"><label for="f-team">'+t('teamName')+'</label><input type="text" id="f-team" maxlength="40" value="'+esc(U.cfg.team)+'"></div>'+
+    '<div class="field"><label for="f-dur">'+t('dur')+'</label><select id="f-dur">'+DUR_OPTS.map(d=>'<option value="'+d+'"'+(d===U.cfg.dur?' selected':'')+'>'+t('min',d/60)+'</option>').join('')+'</select></div>'+
+    '<div class="field"><label for="f-spd">'+t('speed')+'</label><select id="f-spd">'+[1,2,4].map(s=>'<option value="'+s+'"'+(U.cfg.speed===s?' selected':'')+'>'+s+'×</option>').join('')+'</select></div></div>'+
+   '<div class="panel"><p>'+t('demand')+'</p><p style="margin-top:8px">'+t('scoring')+'</p><div class="row" style="margin-top:16px"><button class="btn primary" data-act="start1" id="b-start1">'+t('start1')+'</button></div></div></section>'+
+   '<p class="credit">'+t('credit')+'</p></div>';
+}
+function famTable(r){
+  const st=c=>TYPES.reduce((s,ty)=>s+r.stockT[c+'-'+ty],0);
+  return'<div class="tablewrap"><table><thead><tr><th>'+t('f_fam')+'</th><th>'+t('f_LP')+'</th><th>'+t('f_LW')+'</th><th>'+t('f_short')+'</th></tr></thead><tbody>'+
+   COMPS.map(c=>'<tr><td>'+t('c_'+c)+'</td><td>'+nf(r.LPf[c],1)+' s</td><td>'+nf(r.LWf[c],1)+' s</td><td class="'+(st(c)>0?'neg':'')+'">'+nf(st(c),0)+' s</td></tr>').join('')+'</tbody></table></div>';
+}
+function summaryHTML(){
+  const r=U.results[U.round-1];
+  const rows=[[t('row_done'),r.delivered,'+10',r.delivered*10],[t('row_bl'),r.backlog,'−5',-r.backlog*5],[t('row_wip'),r.wip,'−1',-r.wip]];
+  let h='<div class="stack"><div><p class="kicker">'+(U.cfg.team?esc(U.cfg.team)+' · ':'')+t('round')+' '+r.round+' · '+t('r'+r.round+'t')+'</p><h1>'+t('sumTitle',r.round)+'</h1></div>';
+  h+='<div class="scorebox"><div class="score"><div class="small">'+t('pts')+'</div><div class="v'+(r.points<0?' neg':'')+'" id="countup" data-v="'+r.points+'">'+r.points+'</div></div><div class="panel"><div class="tablewrap"><table><thead><tr><th></th><th>n</th><th>×</th><th>'+t('pts')+'</th></tr></thead><tbody>'+
+    rows.map(x=>'<tr><td>'+x[0]+'</td><td>'+x[1]+'</td><td>'+x[2]+'</td><td class="'+(x[3]<0?'neg':(x[3]>0?'pos':''))+'">'+(x[3]>0?'+':'')+x[3]+'</td></tr>').join('')+'</tbody><tfoot><tr><td>'+t('total')+'</td><td></td><td></td><td>'+r.points+'</td></tr></tfoot></table></div></div></div>';
+  const ud=Math.round((r.util.legs+r.util.body+r.util.head)/3*100);
+  h+='<p class="note">'+(r.mode==='push'?t('pushNote',ud,r.wip,r.delivered):t('kanNote',r.cards,r.wip))+'</p>';
+  h+='<div class="tiles"><div class="tile"><span>'+t('m_lead')+'</span><b>'+nf(r.lead,0)+' '+t('sec')+'</b><small>'+t('m_leadS')+'</small></div><div class="tile"><span>'+t('m_serv')+'</span><b>'+Math.round(r.noWait*100)+'%</b><small>'+t('m_servS')+'</small></div><div class="tile"><span>'+t('m_wip')+'</span><b>'+nf(r.wipAvg,0)+'</b><small>'+t('m_wipS')+'</small></div><div class="tile"><span>'+t('m_trips')+'</span><b>'+r.trips+'</b><small>'+(r.mode==='kanban'?t('m_tripsS',r.swaps):'&nbsp;')+'</small></div></div>';
+  h+='<div class="two"><div class="panel"><h3>'+t('ch_inv')+'</h3>'+invSVG(r)+'</div><div class="panel"><h3>'+t('ch_bl')+'</h3>'+blSVG(r)+'<h3 style="margin-top:14px">'+t('util')+'</h3>'+utilHTML(r)+'</div></div>';
+  if(r.mode==='kanban')h+='<div class="panel"><h3>'+t('famT')+'</h3>'+famTable(r)+'</div>';
+  return h+'<div class="row"><button class="btn primary" data-act="next">'+t('next'+r.round)+'</button></div></div>';
+}
+function formulaHTML(LP,LW,note){
+  const D=1/(4*P.takt),calc=L=>D*L*(1+ALPHA);
+  const stp=(k,c)=>'<span class="stp"><button data-act="kn" data-k="'+k+'" data-c="'+c+'" data-d="-1" aria-label="'+k+' '+t('c_'+c)+' −">−</button><b id="kn-'+k+'-'+c+'">'+U['n'+k][c]+'</b><button data-act="kn" data-k="'+k+'" data-c="'+c+'" data-d="1" aria-label="'+k+' '+t('c_'+c)+' +">+</button></span>';
+  const cell=L=>L==null?'<td>–</td><td>–</td>':'<td>'+nf(L,0)+' s</td><td>'+nf(calc(L),2)+' → <b>'+Math.max(1,Math.ceil(calc(L)-1e-9))+'</b></td>';
+  return'<p class="formula">N = D · L · (1 + α) / a</p><p class="small muted" style="margin-top:6px">'+t('forD')+'</p><p class="small" style="margin-top:6px">'+t('forDem')+' '+note+'</p>'+
+   '<div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>'+t('f_fam')+'</th><th>L_P</th><th><span class="kc p">P</span> '+t('f_calc')+'</th><th><span class="kc p">P</span> '+t('f_your')+'</th><th>L_W</th><th><span class="kc w">W</span> '+t('f_calc')+'</th><th><span class="kc w">W</span> '+t('f_your')+'</th></tr></thead><tbody>'+
+   COMPS.map(c=>'<tr><td>'+t('c_'+c)+'</td>'+cell(LP[c])+'<td>'+stp('P',c)+'</td>'+cell(LW[c])+'<td>'+stp('W',c)+'</td></tr>').join('')+'</tbody></table></div><p class="small" id="cap-now" style="margin-top:8px">'+t('capNow',capOf())+'</p>';
+}
+function interHTML(){
+  return'<div class="stack"><div><p class="kicker">'+t('round')+' 1 → 2</p><h1>'+t('imTitle')+'</h1></div>'+
+   '<div class="two"><div class="panel">'+loopSVG()+'<p class="small" style="margin-top:6px">'+t('kP')+'</p><p class="small" style="margin-top:6px">'+t('kW')+'</p></div>'+
+   '<div class="panel"><h3>'+t('cycT')+'</h3><ol class="steps">'+t('cyc').map(x=>'<li>'+x+'</li>').join('')+'</ol></div></div>'+
+   '<div class="panel"><h3>'+t('rulT')+'</h3><ol class="steps">'+t('rul').map(x=>'<li>'+x+'</li>').join('')+'</ol></div>'+
+   '<div class="panel"><h3>'+t('forT')+'</h3>'+formulaHTML(EST.LP,EST.LW,t('estNote'))+'</div>'+
+   '<div class="row"><button class="btn primary" data-act="start2">'+t('start2')+'</button></div></div>';
+}
+function retroHTML(){
+  const r=U.results[1];let ins='';
+  if(r){
+    let worst=null;PN.forEach(p=>{if(r.stockT[p]>0&&(!worst||r.stockT[p]>r.stockT[worst]))worst=p;});
+    ins='<ul class="ins"><li>'+(worst?t('i_short',pnName(worst),nf(r.stockT[worst],0)):t('i_noShort'))+'</li><li>'+t('i_serv',Math.round(r.noWait*100))+'</li><li>'+t('i_alpha')+'</li></ul>';
+  }
+  return'<div class="stack"><div><p class="kicker">'+t('round')+' 2 → 3</p><h1>'+t('retroTitle')+'</h1><p class="lead">'+t('retroLead')+'</p></div>'+
+   (r?'<div class="two"><div class="panel">'+ins+'</div><div class="panel"><h3>'+t('famT')+'</h3>'+famTable(r)+'</div></div>':'')+
+   '<div class="panel"><h3>'+t('chooseImp')+'</h3><div class="opts c2">'+IMPS.map(k=>'<button class="opt" data-act="imp" data-k="'+k+'" aria-pressed="'+U.imp.includes(k)+'"><b>'+t('imp_'+k)+'</b><small>'+t('imp_'+k+'_d')+'</small></button>').join('')+'</div><p class="hint" id="imp-hint" style="margin-top:8px"></p></div>'+
+   '<div class="panel"><h3>'+t('adjust')+'</h3>'+formulaHTML(r?r.LPf:EST.LP,r?r.LWf:EST.LW,r?t('measNote'):t('estNote'))+'</div>'+
+   '<div class="panel"><label for="f-notes"><h3>'+t('notes')+'</h3></label><textarea id="f-notes" style="margin-top:8px">'+esc(U.notes)+'</textarea></div>'+
+   '<div class="row"><button class="btn primary" data-act="start3">'+t('start3')+'</button></div></div>';
+}
+function resultsText(){
+  const L=[t('title')+(U.cfg.team?' · '+t('team')+': '+U.cfg.team:'')+' · '+t('roleL')+': '+t('role_'+U.cfg.role)];
+  U.results.forEach(r=>{if(!r)return;
+    let s=t('round')+' '+r.round+' ('+t('r'+r.round+'t')+'): '+r.points+' '+t('pts').toLowerCase()+' · '+t('h_done')+' '+r.delivered+' · '+t('h_bl')+' '+r.backlog+' · '+t('h_wip')+' '+r.wip+' · '+t('h_lead')+' '+nf(r.lead,0)+' s · '+t('h_serv')+' '+Math.round(r.noWait*100)+'%';
+    if(r.mode==='kanban')s+=' · P '+COMPS.map(c=>r.nP[c]).join('/')+' · W '+COMPS.map(c=>r.nW[c]).join('/')+' ('+r.cards+')';
+    if(r.round===3)s+=' · '+t('impL')+': '+(r.imp.length?r.imp.map(k=>t('imp_'+k)).join(', '):t('none'));
+    L.push(s);});
+  if(U.notes)L.push(t('notes')+': '+U.notes);
+  return L.join('\n');
+}
+function debriefHTML(){
+  const rs=U.results,r1=rs[0],r2=rs[1],r3=rs[2],ins=[];
+  if(r1&&r2)ins.push(t('d1',r1.wip,r2.wip));
+  if(r1&&r3)ins.push(t('d2',r1.delivered,r3.delivered));
+  if(r2&&r3){ins.push(t('d3',nf(r2.lead,0),nf(r3.lead,0)));ins.push(r3.imp.includes('heijunka')?t('d_heij'):t('d_noheij'));}
+  const tbl='<div class="tablewrap"><table><thead><tr><th>'+t('h_round')+'</th><th>'+t('h_pts')+'</th><th>'+t('h_done')+'</th><th>'+t('h_bl')+'</th><th>'+t('h_wip')+'</th><th>'+t('h_lead')+'</th><th>'+t('h_serv')+'</th><th>'+t('h_cards')+'</th></tr></thead><tbody>'+
+   rs.filter(Boolean).map(r=>'<tr><td>'+r.round+' · '+t('r'+r.round+'t')+'</td><td class="'+(r.points<0?'neg':'')+'">'+r.points+'</td><td>'+r.delivered+'</td><td>'+r.backlog+'</td><td>'+r.wip+'</td><td>'+nf(r.lead,0)+' s</td><td>'+Math.round(r.noWait*100)+'%</td><td>'+(r.cards||'–')+'</td></tr>').join('')+'</tbody></table></div>';
+  return'<div class="stack"><div><p class="kicker">'+(U.cfg.team?esc(U.cfg.team):t('title'))+'</p><h1>'+t('dbTitle')+'</h1></div>'+
+   '<div class="two"><div class="panel"><h3>'+t('ptsChart')+'</h3>'+pointsSVG()+'</div><div class="panel"><h3>'+t('insTitle')+'</h3><ul class="ins">'+ins.map(x=>'<li>'+x+'</li>').join('')+'</ul></div></div>'+
+   '<div class="panel"><h3>'+t('cmp')+'</h3>'+tbl+'</div>'+
+   '<div class="two"><div class="panel"><h3>'+t('qTitle')+'</h3><ol class="steps">'+t('q').map(x=>'<li>'+x+'</li>').join('')+'</ol></div><div class="panel"><h3>'+t('lTitle')+'</h3><ol class="steps">'+t('l').map(x=>'<li>'+x+'</li>').join('')+'</ol></div></div>'+
+   '<div class="panel"><div class="row"><button class="btn primary" data-act="copy">'+t('copy')+'</button><button class="btn" data-act="restart">'+t('restart')+'</button><span id="copy-msg" class="small"></span></div><textarea class="copyarea" id="f-copy" readonly aria-label="'+esc(t('copy'))+'">'+esc(resultsText())+'</textarea></div>'+
+   '<p class="credit">'+t('credit')+'</p></div>';
+}
+
+/* ---------- Navigazione ---------- */
+function go(s){U.screen=s;render();window.scrollTo(0,0);}
+function render(){
+  document.documentElement.lang=U.lang;$('#langBtn').textContent=U.lang==='it'?'EN':'IT';$('#brand').textContent=t('title');document.title=t('title');
+  Object.keys(cache).forEach(k=>delete cache[k]);clearFx();
+  const app=$('#app');
+  if(U.screen==='game'){app.innerHTML=gameSkeleton();updateGame();return;}
+  app.innerHTML=({intro:introHTML,summary:summaryHTML,inter:interHTML,retro:retroHTML,debrief:debriefHTML})[U.screen]();
+  if(U.screen==='summary')countUp();
+}
+function countUp(){
+  const el=document.getElementById('countup');if(!el||reduceMotion)return;
+  const v=+el.dataset.v,t0=performance.now();
+  const f=now=>{const p=Math.min(1,(now-t0)/900),e=1-Math.pow(1-p,3);el.textContent=Math.round(v*e);if(p<1)requestAnimationFrame(f);};
+  el.textContent='0';requestAnimationFrame(f);
+}
+function act(a,el){
+  switch(a){
+    case'lang':U.lang=U.lang==='it'?'en':'it';render();break;
+    case'role':U.cfg.role=el.dataset.r;document.querySelectorAll('[data-act=role]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.r===U.cfg.role)));break;
+    case'start1':U.results=[];U.imp=[];U.notes='';U.seed=1+Math.floor(Math.random()*1e6);newRound(1);break;
+    case'start2':newRound(2);break;
+    case'start3':newRound(3);break;
+    case'pause':if(sim&&!sim.S.ended){paused=!paused;setText('u-pz',paused?t('resume'):t('pause'));updateGame();}break;
+    case'endnow':paused=false;if(sim){sim.S.ended=true;finishRound();}break;
+    case'anim':U.anim=!U.anim;if(!U.anim)clearFx();updateGame();break;
+    case'speed':U.cfg.speed=U.cfg.speed===1?2:(U.cfg.speed===2?4:1);updateGame();break;
+    case'ptype':if(!paused&&sim){sim.act('legs','produceType',el.dataset.type);updateGame();}break;
+    case'take':if(!paused&&sim){sim.act('legs','produce');updateGame();}break;
+    case'm':if(!paused&&sim){sim.act('mizu',el.dataset.a);updateGame();}break;
+    case'next':go(U.round===1?'inter':(U.round===2?'retro':'debrief'));break;
+    case'kn':{const k=el.dataset.k,c=el.dataset.c,o=U['n'+k];o[c]=Math.max(1,Math.min(5,o[c]+(+el.dataset.d)));setText('kn-'+k+'-'+c,String(o[c]));setText('cap-now',t('capNow',capOf()));break;}
+    case'imp':{const k=el.dataset.k,i=U.imp.indexOf(k),hint=document.getElementById('imp-hint');
+      if(i>=0)U.imp.splice(i,1);else if(U.imp.length<2)U.imp.push(k);else{if(hint)hint.textContent=t('maxImp');break;}
+      if(hint)hint.textContent='';document.querySelectorAll('[data-act=imp]').forEach(b=>b.setAttribute('aria-pressed',String(U.imp.includes(b.dataset.k))));break;}
+    case'copy':{const msg=document.getElementById('copy-msg'),fail=()=>{msg.textContent=t('copyFail');const ta=document.getElementById('f-copy');if(ta)ta.select();};
+      try{navigator.clipboard.writeText(resultsText()).then(()=>{msg.textContent=t('copied');msg.className='small flash';},fail);}catch(e){fail();}break;}
+    case'restart':U.results=[];U.imp=[];U.notes='';U.nP={legs:2,body:2,head:2};U.nW={legs:2,body:2,head:2};sim=null;go('intro');break;
+  }
+}
+document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b||b.disabled)return;act(b.dataset.act,b);});
+document.addEventListener('input',e=>{if(e.target.id==='f-team')U.cfg.team=e.target.value;if(e.target.id==='f-notes')U.notes=e.target.value;});
+document.addEventListener('change',e=>{if(e.target.id==='f-dur')U.cfg.dur=+e.target.value;if(e.target.id==='f-spd')U.cfg.speed=+e.target.value;});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&U.screen==='game')act('pause');});
+setInterval(()=>{
+  const now=performance.now();let dt=(now-lastNow)/1000;lastNow=now;if(dt>0.25)dt=0.25;
+  if(sim&&U.screen==='game'){
+    if(!paused&&!sim.S.ended)for(let i=0;i<U.cfg.speed;i++)sim.step(dt);
+    const evs=sim.S.ev.splice(0);if(!sim.S.ended)evs.forEach(handleEv);
+    if(sim.S.ended){finishRound();return;}
+    updateGame();
+  }
+},100);
+function snapshot(){const pre={1:'intro',2:'inter',3:'retro'};return{lang:U.lang,cfg:U.cfg,nP:U.nP,nW:U.nW,imp:U.imp,notes:U.notes,results:U.results,round:U.round,seed:U.seed,screen:U.screen==='game'?pre[U.round]:U.screen};}
+function start(d){
+  if(d&&d.lang){Object.assign(U,{lang:d.lang,cfg:d.cfg||U.cfg,nP:d.nP||U.nP,nW:d.nW||U.nW,imp:d.imp||[],notes:d.notes||'',results:d.results||[],round:d.round||1,seed:d.seed||1,screen:d.screen||'intro'});
+    if(U.screen==='summary'&&!U.results[U.round-1])U.screen='intro';}
+  render();
+}
+try{window.claude&&window.claude.hot&&window.claude.hot.snapshot&&window.claude.hot.snapshot(snapshot);}catch(e){}
+if(window.claude&&window.claude.hot&&window.claude.hot.ready)window.claude.hot.ready(start);else start((window.claude&&window.claude.hot&&window.claude.hot.data)||{});
+
+})();
+</script>
+</body>
+</html>
