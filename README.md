@@ -12,6 +12,8 @@ Tre reparti (Zampe, Corpi, Teste) costruiscono i componenti di quattro animali L
 - **Round 2 – Doppio kanban:** si dimensionano i cartellini con N = D · L · (1 + α) / a e si lavora in pull.
 - **Round 3 – Kaizen:** si misurano i lead time dei due anelli e si scelgono miglioramenti (heijunka, giri più frequenti, SMED, lavoro standard).
 
+Una barra in alto permette di passare a qualsiasi pagina (round, esiti, intermezzo, retrospettiva, debriefing) senza rigiocare: i round non giocati vengono simulati automaticamente.
+
 Ruoli: Reparto Zampe, Mizusumashi oppure osservatore (tutto automatico, per la proiezione in aula). Interfaccia in italiano e inglese.
 
 Il ciclo dei cartellini segue Y. Monden, *Toyota Production System*. Ispirato al [Lego Animal Farm Kanban Game](https://www.organizeagile.com/update/lego-kanban-game) di Organize Agile.

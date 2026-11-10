@@ -48,6 +48,15 @@ a{color:var(--kw)}
 :focus-visible{outline:3px solid var(--kw);outline-offset:2px}
 .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px;background:var(--ink);color:#f5f3ea}
 .brand{font-family:var(--f-display);font-size:1.15rem}
+.nav{display:flex;align-items:center;gap:6px;padding:6px 12px;background:#2c373b;position:relative;z-index:6}
+.steps-nav{list-style:none;margin:0;padding:2px 0;display:flex;gap:4px;overflow-x:auto;flex:1;scrollbar-width:thin}
+.steps-nav li{flex:none}
+.stepb{font:inherit;font-size:.8rem;font-weight:700;white-space:nowrap;background:transparent;color:#cfd8d4;border:1.5px solid #56646a;border-radius:14px;padding:3px 10px;cursor:pointer}
+.stepb:hover{border-color:#f5f3ea;color:#fff}
+.stepb.done{border-color:#7fb3e6}
+.stepb.cur{background:var(--postit);color:var(--ink);border-color:var(--postit)}
+.navb{padding:2px 12px;font-size:1.2rem;line-height:1.2;box-shadow:0 2px 0 #000;border-color:#f5f3ea}
+.simn{border-left-color:var(--kw)}
 .langbtn{font:inherit;font-weight:700;font-size:.85rem;background:transparent;color:#f5f3ea;border:1.5px solid #f5f3ea;border-radius:5px;padding:4px 10px;cursor:pointer}
 main{max-width:1280px;margin:0 auto;padding:16px 16px 48px}
 .stack{display:grid;gap:18px}
@@ -210,6 +219,7 @@ tfoot td{font-weight:700;border-bottom:0;font-size:1.05rem}
 </head>
 <body>
 <header class="topbar"><span class="brand" id="brand">Fattoria LEGO a doppio kanban</span><button class="langbtn" id="langBtn" data-act="lang" aria-label="Language">EN</button></header>
+<nav class="nav" id="nav" aria-label="Pagine"></nav>
 <main id="app"></main>
 <div id="flylayer" aria-hidden="true"></div>
 <script>
@@ -499,7 +509,7 @@ it:{
  credit:'Ispirato al <a href="https://www.organizeagile.com/update/lego-kanban-game" target="_blank" rel="noopener">Lego Animal Farm Kanban Game</a> di Organize Agile; ciclo a due cartellini secondo Monden, <i>Toyota Production System</i>.',
  round:'Round',shipped:'Spediti',waiting:'Ordini in attesa',stock:'Scorte',pause:'Pausa',resume:'Riprendi',endRound:'Termina il round',paused:'Gioco in pausa',
  z_dept:'Reparti',z_super:'Supermarket',z_mizu:'Mizusumashi',z_line:'Bordo linea',z_asm:'Assemblaggio finale',
- you:'Tu',animOn:'Animazioni: sì',animOff:'Animazioni: no',postP:'Cassetta kanban P',postW:'Cassetta kanban W',emptiesL:'Vuoti',ci_legs:'Z',ci_body:'C',ci_head:'T',kPn:'Kanban di produzione',kWn:'Kanban di prelievo',cFull:'Pieni',cW:'Kanban W in mano',stopS:'fermata supermarket',stopL:'fermata bordo linea',swapCap:x=>'Scambio '+x+': stacca P, attacca W',legend:(a,b)=>'Come leggere i cartellini: '+a+' kanban di produzione per Zampe Mucca · '+b+' kanban di prelievo per Corpo Papera. Z = zampe, C = corpo, T = testa.',
+ you:'Tu',navPrev:'Pagina precedente',navNext:'Pagina successiva',st_intro:'Inizio',st_g1:'Round 1',st_s1:'Esito 1',st_inter:'Intermezzo',st_g2:'Round 2',st_s2:'Esito 2',st_retro:'Retrospettiva',st_g3:'Round 3',st_s3:'Esito 3',st_debrief:'Debriefing',ffwd:'Simula fino alla fine',simNote:'Questo round non è stato giocato: i risultati vengono da una simulazione automatica con le impostazioni attuali.',animOn:'Animazioni: sì',animOff:'Animazioni: no',postP:'Cassetta kanban P',postW:'Cassetta kanban W',emptiesL:'Vuoti',ci_legs:'Z',ci_body:'C',ci_head:'T',kPn:'Kanban di produzione',kWn:'Kanban di prelievo',cFull:'Pieni',cW:'Kanban W in mano',stopS:'fermata supermarket',stopL:'fermata bordo linea',swapCap:x=>'Scambio '+x+': stacca P, attacca W',legend:(a,b)=>'Come leggere i cartellini: '+a+' kanban di produzione per Zampe Mucca · '+b+' kanban di prelievo per Corpo Papera. Z = zampe, C = corpo, T = testa.',
  idle:'Fermo: nessun kanban',idlePush:'In attesa',working:'Costruisce',setup:x=>'cambio tipo +'+x+' s',last:(d,m)=>'ultimo pezzo: '+d+' s (standard '+m+' s)',
  toSuper:'Supermarket',toLine:'Linea',onCart:'Sul carrello',wInHand:n=>'kanban W in mano: '+n,nextTrip:s=>'prossimo giro tra '+s+' s',
  m_deliver:'Consegna a bordo linea',m_collect:'Raccoglie kanban W e vuoti',m_goSuper:'Va al supermarket',m_goLine:'Torna alla linea',m_swap:'Scambia i cartellini',m_loadAll:'Carica i contenitori',m_wait:'Aspetta il prossimo giro',m_idle:'Fermo',
@@ -564,7 +574,7 @@ en:{
  credit:'Inspired by the <a href="https://www.organizeagile.com/update/lego-kanban-game" target="_blank" rel="noopener">Lego Animal Farm Kanban Game</a> by Organize Agile; two-card cycle after Monden, <i>Toyota Production System</i>.',
  round:'Round',shipped:'Shipped',waiting:'Orders waiting',stock:'Stock',pause:'Pause',resume:'Resume',endRound:'End the round',paused:'Game paused',
  z_dept:'Departments',z_super:'Supermarket',z_mizu:'Mizusumashi',z_line:'Line side',z_asm:'Final assembly',
- you:'You',animOn:'Animations: on',animOff:'Animations: off',postP:'P kanban post',postW:'W kanban post',emptiesL:'Empties',ci_legs:'L',ci_body:'B',ci_head:'H',kPn:'Production kanban',kWn:'Withdrawal kanban',cFull:'Full',cW:'W kanban in hand',stopS:'supermarket stop',stopL:'line-side stop',swapCap:x=>'Swap '+x+': detach P, attach W',legend:(a,b)=>'How to read the cards: '+a+' production kanban for Cow Legs · '+b+' withdrawal kanban for Duck Body. L = legs, B = body, H = head.',
+ you:'You',navPrev:'Previous page',navNext:'Next page',st_intro:'Start',st_g1:'Round 1',st_s1:'Result 1',st_inter:'Intermezzo',st_g2:'Round 2',st_s2:'Result 2',st_retro:'Retrospective',st_g3:'Round 3',st_s3:'Result 3',st_debrief:'Debrief',ffwd:'Simulate to the end',simNote:'This round was not played: the results come from an automatic simulation with the current settings.',animOn:'Animations: on',animOff:'Animations: off',postP:'P kanban post',postW:'W kanban post',emptiesL:'Empties',ci_legs:'L',ci_body:'B',ci_head:'H',kPn:'Production kanban',kWn:'Withdrawal kanban',cFull:'Full',cW:'W kanban in hand',stopS:'supermarket stop',stopL:'line-side stop',swapCap:x=>'Swap '+x+': detach P, attach W',legend:(a,b)=>'How to read the cards: '+a+' production kanban for Cow Legs · '+b+' withdrawal kanban for Duck Body. L = legs, B = body, H = head.',
  idle:'Idle: no kanban',idlePush:'Waiting',working:'Building',setup:x=>'changeover +'+x+' s',last:(d,m)=>'last piece: '+d+' s (standard '+m+' s)',
  toSuper:'Supermarket',toLine:'Line',onCart:'On the cart',wInHand:n=>'W kanban in hand: '+n,nextTrip:s=>'next run in '+s+' s',
  m_deliver:'Delivering to the line',m_collect:'Collecting W kanban and empties',m_goSuper:'Going to the supermarket',m_goLine:'Returning to the line',m_swap:'Swapping the cards',m_loadAll:'Loading containers',m_wait:'Waiting for the next run',m_idle:'Idle',
@@ -709,7 +719,7 @@ function gameSkeleton(){
   const S=sim.S,name=t('r'+U.round+'t'),role=U.cfg.role,kan=S.mode==='kanban';
   let h='<section><div class="hud"><span class="pill">'+t('round')+' '+U.round+'/3 · '+name+'</span><span class="clock" id="u-clock"></span>'+
    '<span class="hstat"><span>'+t('shipped')+'</span><b id="u-ship">0</b></span><span class="hstat"><span>'+t('waiting')+'</span><b id="u-wait">0</b></span><span class="hstat"><span>'+t('stock')+'</span><b id="u-stock">0</b></span><span class="sp"></span>'+
-   '<button class="btn" data-act="anim" id="u-anim"></button><button class="btn" data-act="speed" id="u-spd"></button><button class="btn" data-act="pause" id="u-pz">'+t('pause')+'</button></div>';
+   '<button class="btn" data-act="ffwd">'+t('ffwd')+'</button><button class="btn" data-act="anim" id="u-anim"></button><button class="btn" data-act="speed" id="u-spd"></button><button class="btn" data-act="pause" id="u-pz">'+t('pause')+'</button></div>';
   if(kan)h+='<p class="legendk small">'+t('legend',cardHTML('P','legs-cow',-1,true),cardHTML('W','body-duck',-2,true))+'</p>';
   h+='<div class="floor">'+
    '<div class="zone za-dept"><div class="zh"><span class="tape">'+t('z_dept')+'</span></div><div id="z-dept" class="stack" style="gap:8px"></div></div>'+
@@ -877,6 +887,7 @@ function summaryHTML(){
   h+='<div class="scorebox"><div class="score"><div class="small">'+t('pts')+'</div><div class="v'+(r.points<0?' neg':'')+'" id="countup" data-v="'+r.points+'">'+r.points+'</div></div><div class="panel"><div class="tablewrap"><table><thead><tr><th></th><th>n</th><th>×</th><th>'+t('pts')+'</th></tr></thead><tbody>'+
     rows.map(x=>'<tr><td>'+x[0]+'</td><td>'+x[1]+'</td><td>'+x[2]+'</td><td class="'+(x[3]<0?'neg':(x[3]>0?'pos':''))+'">'+(x[3]>0?'+':'')+x[3]+'</td></tr>').join('')+'</tbody><tfoot><tr><td>'+t('total')+'</td><td></td><td></td><td>'+r.points+'</td></tr></tfoot></table></div></div></div>';
   const ud=Math.round((r.util.legs+r.util.body+r.util.head)/3*100);
+  if(r.sim)h+='<p class="note simn">'+t('simNote')+'</p>';
   h+='<p class="note">'+(r.mode==='push'?t('pushNote',ud,r.wip,r.delivered):t('kanNote',r.cards,r.wip))+'</p>';
   h+='<div class="tiles"><div class="tile"><span>'+t('m_lead')+'</span><b>'+nf(r.lead,0)+' '+t('sec')+'</b><small>'+t('m_leadS')+'</small></div><div class="tile"><span>'+t('m_serv')+'</span><b>'+Math.round(r.noWait*100)+'%</b><small>'+t('m_servS')+'</small></div><div class="tile"><span>'+t('m_wip')+'</span><b>'+nf(r.wipAvg,0)+'</b><small>'+t('m_wipS')+'</small></div><div class="tile"><span>'+t('m_trips')+'</span><b>'+r.trips+'</b><small>'+(r.mode==='kanban'?t('m_tripsS',r.swaps):'&nbsp;')+'</small></div></div>';
   h+='<div class="two"><div class="panel"><h3>'+t('ch_inv')+'</h3>'+invSVG(r)+'</div><div class="panel"><h3>'+t('ch_bl')+'</h3>'+blSVG(r)+'<h3 style="margin-top:14px">'+t('util')+'</h3>'+utilHTML(r)+'</div></div>';
@@ -938,10 +949,37 @@ function debriefHTML(){
 }
 
 /* ---------- Navigazione ---------- */
+const STEPS=['intro','g1','s1','inter','g2','s2','retro','g3','s3','debrief'];
+function curStep(){
+  if(U.screen==='game')return STEPS.indexOf('g'+U.round);
+  if(U.screen==='summary')return STEPS.indexOf('s'+U.round);
+  return Math.max(0,STEPS.indexOf(U.screen));
+}
+function simRound(k){
+  const m=makeSim({mode:k===1?'push':'kanban',dur:U.cfg.dur,seqSeed:U.seed,nP:Object.assign({},U.nP),nW:Object.assign({},U.nW),imp:k===3?U.imp.slice():[],human:null});
+  while(!m.S.ended)m.step(0.1);
+  const r=m.result();r.round=k;r.sim=true;U.results[k-1]=r;
+}
+function goStep(i){
+  const st=STEPS[Math.max(0,Math.min(STEPS.length-1,i))];paused=false;
+  if(st[0]==='g'){newRound(+st[1]);return;}
+  if(st[0]==='s'){const k=+st[1];if(!U.results[k-1])simRound(k);U.round=k;go('summary');return;}
+  if(st==='debrief'){[1,2,3].forEach(k=>{if(!U.results[k-1])simRound(k);});}
+  if(st==='retro')U.round=2;
+  if(st==='inter')U.round=1;
+  go(st);
+}
+function navHTML(){
+  const c=curStep();
+  return'<button class="btn navb" data-act="nav" data-i="'+(c-1)+'"'+(c<=0?' disabled':'')+' aria-label="'+esc(t('navPrev'))+'">‹</button><ol class="steps-nav">'+
+    STEPS.map((st,i)=>'<li><button class="stepb'+(i===c?' cur':'')+(st[0]==='s'&&U.results[+st[1]-1]?' done':'')+'" data-act="nav" data-i="'+i+'"'+(i===c?' aria-current="step"':'')+'>'+t('st_'+st)+'</button></li>').join('')+
+    '</ol><button class="btn navb" data-act="nav" data-i="'+(c+1)+'"'+(c>=STEPS.length-1?' disabled':'')+' aria-label="'+esc(t('navNext'))+'">›</button>';
+}
 function go(s){U.screen=s;render();window.scrollTo(0,0);}
 function render(){
   document.documentElement.lang=U.lang;$('#langBtn').textContent=U.lang==='it'?'EN':'IT';$('#brand').textContent=t('title');document.title=t('title');
   Object.keys(cache).forEach(k=>delete cache[k]);clearFx();
+  const nv=document.getElementById('nav');if(nv){nv.innerHTML=navHTML();const cur=nv.querySelector('.cur');if(cur&&cur.scrollIntoView)try{cur.scrollIntoView({block:'nearest',inline:'center'});}catch(e){}}
   const app=$('#app');
   if(U.screen==='game'){app.innerHTML=gameSkeleton();updateGame();return;}
   app.innerHTML=({intro:introHTML,summary:summaryHTML,inter:interHTML,retro:retroHTML,debrief:debriefHTML})[U.screen]();
@@ -962,6 +1000,8 @@ function act(a,el){
     case'start3':newRound(3);break;
     case'pause':if(sim&&!sim.S.ended){paused=!paused;setText('u-pz',paused?t('resume'):t('pause'));updateGame();}break;
     case'endnow':paused=false;if(sim){sim.S.ended=true;finishRound();}break;
+    case'nav':goStep(+el.dataset.i);break;
+    case'ffwd':if(sim&&!sim.S.ended){paused=false;sim.S.human=null;while(!sim.S.ended)sim.step(0.1);finishRound();}break;
     case'anim':U.anim=!U.anim;if(!U.anim)clearFx();updateGame();break;
     case'speed':U.cfg.speed=U.cfg.speed===1?2:(U.cfg.speed===2?4:1);updateGame();break;
     case'ptype':if(!paused&&sim){sim.act('legs','produceType',el.dataset.type);updateGame();}break;
