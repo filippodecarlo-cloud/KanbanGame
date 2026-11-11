@@ -21,7 +21,8 @@ const ROOM_TTL = 24 * 3600 * 1000;
 const LEAVE_GRACE = +process.env.KG_LEAVE_MS || 8000;            // attesa prima di liberare i ruoli di chi esce
 
 const newSeed = () => 1 + Math.floor(Math.random() * 1e9);
-const session = { dur: 180, seed: newSeed() };
+const session = { dur: 180, seed: newSeed(), lang: 'it' };
+const sess = () => ({ dur: session.dur, lang: session.lang });
 const rooms = new Map();
 const viewers = new Set(); // tutte le risposte SSE aperte (per reset)
 
@@ -154,7 +155,7 @@ function sse(req, res, q) {
     if (back) syncHuman(r);
   }
   r.touched = Date.now(); r.emptySince = Date.now();
-  const init = { type: 'init', room: pub(r), peers: peers(r), session: { dur: session.dur } };
+  const init = { type: 'init', room: pub(r), peers: peers(r), session: sess() };
   if (r.sim) init.S = r.sim.snapshot();
   send(res, init);
   if (isNew && !view) sendPeers(r);
@@ -261,7 +262,7 @@ function roomsInfo() {
       live,
     };
   });
-  return { rooms: list, session: { dur: session.dur }, now: Date.now() };
+  return { rooms: list, session: sess(), now: Date.now() };
 }
 
 const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8',
@@ -299,7 +300,7 @@ async function handle(req, res) {
   const q = u.searchParams, pn = u.pathname;
   if (req.method === 'OPTIONS') { res.writeHead(204, CORS); return res.end(); }
   if (pn.startsWith('/api/')) {
-    if (pn === '/api/ping') return json(res, 200, { ok: true, app: 'kanban-game' });
+    if (pn === '/api/ping') return json(res, 200, { ok: true, app: 'kanban-game', lang: session.lang });
     if (pn === '/api/events' && req.method === 'GET') return sse(req, res, q);
     if (pn === '/api/rooms' && req.method === 'GET') return json(res, 200, roomsInfo());
     if (pn === '/api/pin') return json(res, 200, { ok: q.get('pin') === PIN });
@@ -317,10 +318,14 @@ async function handle(req, res) {
     if (pn === '/api/session' || pn === '/api/reset') {
       if (q.get('pin') !== PIN) return json(res, 403, { ok: false, error: 'pin' });
       if (pn === '/api/session') {
-        const d = +(b && b.dur);
-        if (!DURS.includes(d)) return json(res, 400, { ok: false, error: 'dur' });
-        session.dur = d;
-        return json(res, 200, { ok: true, session: { dur: session.dur } });
+        const hasD = b && b.dur != null, hasL = b && b.lang != null, d = +(b && b.dur);
+        if (!hasD && !hasL) return json(res, 400, { ok: false, error: 'dur' });
+        if (hasD && !DURS.includes(d)) return json(res, 400, { ok: false, error: 'dur' });
+        if (hasL && b.lang !== 'it' && b.lang !== 'en') return json(res, 400, { ok: false, error: 'lang' });
+        if (hasD) session.dur = d;
+        if (hasL) session.lang = b.lang;
+        for (const r of rooms.values()) broadcast(r, { type: 'session', session: sess() });
+        return json(res, 200, { ok: true, session: sess() });
       }
       session.seed = newSeed();
       for (const r of rooms.values()) {

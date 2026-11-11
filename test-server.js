@@ -159,9 +159,10 @@ async function main() {
     const tickA = m => { if (m.type === 'tick') pA.onTick(m.S); };
     const tickB = m => { if (m.type === 'tick') pB.onTick(m.S); };
     A.waiters.push(m => { tickA(m); return false; }); B.waiters.push(m => { tickB(m); return false; });
+    const sP = A.waitNew(m => m.type === 'state' && m.room && m.room.phase === 'g' + n, 3000, 'state g' + n); /* in ascolto prima del POST: lo state può arrivare prima della risposta */
     const r1 = await op('cidA', { a: 'next' });
     ok(r1.json.ok, 'next avvia il round ' + n);
-    const s = await A.waitNew(m => m.type === 'state', 3000, 'state g' + n);
+    const s = await sP;
     ok(s.room.phase === 'g' + n && s.room.round === n, 'fase g' + n);
     const tk = await A.waitNew(m => m.type === 'tick', 3000, 'tick');
     ok(tk.S && tk.S.mode === mode && Array.isArray(tk.ev), 'tick con S e ev, modo ' + mode);

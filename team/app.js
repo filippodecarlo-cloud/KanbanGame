@@ -56,7 +56,7 @@ function drawModel(type,o){
 function brickChip(s,c){return'<svg viewBox="0 0 '+(BW[s]*BU+4)+' 15" width="'+Math.round((BW[s]*BU+4)*1.1)+'" height="16" aria-hidden="true">'+brickRect({s,x:0,y:0,c},2,13,false)+'</svg>';}
 
 /* ---------- Testi (solo italiano) ---------- */
-const TXT={
+const TXT_IT={
  title:'Fattoria LEGO a squadre',kicker:'Serious game a squadre · Lean production',
  lead:'Tre reparti costruiscono zampe, corpi e teste; un supermarket li separa dall\'assemblaggio finale. Ognuno della squadra prende un ruolo dal proprio telefono: due cartellini, uno di produzione e uno di prelievo, governano tutto lo stabilimento senza un programma centrale.',
  t_cow:'Mucca',t_horse:'Cavallo',t_sheep:'Pecora',t_duck:'Papera',ab_cow:'Mu',ab_horse:'Ca',ab_sheep:'Pe',ab_duck:'Pa',
@@ -144,10 +144,345 @@ const TXT={
  tvPinBad:'PIN docente non valido.',tvPinHelp:'Controlla il PIN (variabile DOCENTE_PIN del server) e riprova.',tvNoSrv:'Server non raggiungibile: nuovo tentativo tra poco…',tvUpd:s=>'aggiornato alle '+s,tvDurSet:s=>'Durata dei prossimi round: '+clock(s)+' minuti.',
  tvLiveTxt:(r,d,w,s)=>r+' rimasti · '+d+' spediti · '+w+' in attesa · '+s+' scorte'
 };
+const TXT_IT_X={
+ tvResetNote:"Cancella tutte le squadre e genera una nuova sequenza di ordini.",
+ copyOk:"Link copiato.",
+ copyKo:"Copia non riuscita: seleziona il link.",
+ minutes:"minuti",
+ pointsW:"punti",
+ notesL:"Note",
+ inTeam:"in squadra",
+ tvLang:"Lingua",
+ tvLangNote:"Lingua predefinita per gli studenti; ogni studente può comunque cambiarla sul proprio dispositivo.",
+ tvLangSet:"Lingua predefinita aggiornata.",
+ ph_lobby:"In sala",
+ ph_g1:"Round 1 in corso",
+ ph_s1:"Esito 1",
+ ph_inter:"Intermezzo",
+ ph_g2:"Round 2 in corso",
+ ph_s2:"Esito 2",
+ ph_retro:"Retrospettiva",
+ ph_g3:"Round 3 in corso",
+ ph_s3:"Esito 3",
+ ph_debrief:"Debriefing"
+};
+const TXT_EN={
+ title:"LEGO Farm: team game",
+ kicker:"Team serious game · Lean production",
+ lead:"Three departments build legs, bodies and heads; a supermarket separates them from final assembly. Each team member takes a role on their own phone: two cards, one for production and one for withdrawal, run the whole plant with no central schedule.",
+ t_cow:"Cow",
+ t_horse:"Horse",
+ t_sheep:"Sheep",
+ t_duck:"Duck",
+ ab_cow:"Co",
+ ab_horse:"Ho",
+ ab_sheep:"Sh",
+ ab_duck:"Du",
+ c_legs:"Legs",
+ c_body:"Body",
+ c_head:"Head",
+ d_legs:"Legs department",
+ d_body:"Body department",
+ d_head:"Head department",
+ bomT:"Bill of materials",
+ bomD:"Each animal is made of exactly these bricks: the drawings in the game show them one by one. The more bricks in a component, the longer it takes.",
+ r1t:"Push",
+ r2t:"Two-card kanban",
+ r3t:"Kaizen",
+ r1d:"Departments build to forecast. The Mizusumashi brings the line whatever it finds.",
+ r2d:"Decide together how many production (P) and withdrawal (W) kanban to circulate. Nothing is made or moved without a card.",
+ r3d:"Measure the lead time of both loops, recompute the cards and choose two improvements.",
+ role_legs:"Legs department",
+ role_body:"Body department",
+ role_head:"Head department",
+ role_mizu:"Mizusumashi",
+ role_asm:"Final assembly",
+ role_legs_d:"You build the legs: one piece at a time.",
+ role_body_d:"You build the bodies: the longest pieces to assemble.",
+ role_head_d:"You build the heads.",
+ role_mizu_d:"You run between line and supermarket and swap the cards P ↔ W.",
+ role_asm_d:"You assemble the ordered animal when its three parts are at the line side.",
+ scoring:"Scoring: +10 per animal shipped, −5 per unfilled order at the end of the round, −1 per container of stock left in the plant.",
+ demand:"The customer orders one animal every 8 seconds (takt time).",
+ credit:"Inspired by the <a href=\"https://www.organizeagile.com/update/lego-kanban-game\" target=\"_blank\" rel=\"noopener\">Lego Animal Farm Kanban Game</a> by Organize Agile; two-card cycle after Monden, <i>Toyota Production System</i>.",
+ round:"Round",
+ shipped:"Shipped",
+ waiting:"Waiting",
+ stock:"Stock",
+ z_dept:"Departments",
+ z_super:"Supermarket",
+ z_mizu:"Mizusumashi",
+ z_line:"Line side",
+ z_asm:"Final assembly",
+ you:"You",
+ auto:"auto",
+ st_lobby:"Lobby",
+ st_g1:"Round 1",
+ st_s1:"Result 1",
+ st_inter:"Intermezzo",
+ st_g2:"Round 2",
+ st_s2:"Result 2",
+ st_retro:"Retrospective",
+ st_g3:"Round 3",
+ st_s3:"Result 3",
+ st_debrief:"Debrief",
+ animOn:"Animations: on",
+ animOff:"Animations: off",
+ postP:"P kanban post",
+ postW:"W kanban post",
+ emptiesL:"Empties",
+ ci_legs:"L",
+ ci_body:"B",
+ ci_head:"H",
+ kPn:"Production kanban",
+ kWn:"Withdrawal kanban",
+ cFull:"Full",
+ cW:"W kanban in hand",
+ stopS:"supermarket",
+ stopL:"line side",
+ swapCap:x=>'Swap '+x+': detach P, attach W',
+ legend:(a,b)=>'How to read the cards: '+a+' production kanban for Cow Legs · '+b+' withdrawal kanban for Duck Body. L = legs, B = body, H = head.',
+ idle:"Idle: no kanban",
+ idlePush:"Waiting",
+ working:"Building",
+ setup:x=>'changeover +'+x+' s',
+ last:(d,m)=>'last piece: '+d+' s (standard '+m+' s)',
+ nextTrip:s=>'next run in '+s+' s',
+ m_deliver:"Delivering to the line",
+ m_collect:"Collecting W kanban and empties",
+ m_goSuper:"Going to the supermarket",
+ m_goLine:"Returning to the line",
+ m_swap:"Swapping the cards",
+ m_loadAll:"Loading containers",
+ m_wait:"Waiting for the next run",
+ m_idle:"Idle",
+ asmWork:x=>'Assembling: '+x,
+ asmWait:"Waiting for orders",
+ asmStarve:"Line stopped. Missing:",
+ asmReady:x=>'Parts ready for: '+x,
+ next:"Next orders",
+ truck:"Shipped",
+ b_take:"Take the P kanban and build",
+ b_deliver:"Deliver full containers",
+ b_collect:"Collect W kanban and empties",
+ b_goSuper:"Go to the supermarket",
+ b_swap:"Swap P ↔ W",
+ b_loadAll:"Load the containers",
+ b_goLine:"Return to the line",
+ b_asm:"Assemble the next order",
+ h_push:"No card: you decide what to build, watching the incoming orders.",
+ h_noCard:"Post empty: no kanban, no production.",
+ h_nextCard:x=>'Next kanban in the post: '+x+'.',
+ h_building:(x,s)=>'Building '+x+'… '+s+' s to go.',
+ h_m_busy:(x,s)=>x+'… '+s+' s.',
+ h_m_line:"You are at the line side.",
+ h_m_super:"You are at the supermarket.",
+ h_m_noMatch:"No swap possible: the parts requested are not in the supermarket.",
+ h_a_busy:(x,s)=>'Assembling: '+x+'… '+s+' s to go.',
+ h_a_none:"No orders waiting.",
+ h_a_miss:x=>'You cannot assemble: '+x+' is missing.',
+ h_a_ready:x=>'Parts ready: assemble the '+x+'!',
+ e_made:(o,x,k)=>o+' puts '+x+' in the supermarket'+(k?' with its P kanban':''),
+ e_pTake:x=>'P kanban taken from the post: '+x,
+ e_swap:x=>'Swap on '+x+': P kanban to the department post, W kanban on the container',
+ e_mGo:n=>'The Mizusumashi leaves for the supermarket with '+n+' W kanban',
+ e_mCollect:n=>'Collected '+n+' W kanban and empties',
+ e_mDeliver:n=>'Delivered '+n+' containers to the line',
+ e_mLoad:n=>'Loaded '+n+' containers',
+ e_short:x=>'Missing at the line: '+x,
+ e_ship:x=>'Shipped: '+x,
+ sumTitle:n=>'End of round '+n,
+ pts:"Points",
+ row_done:"Animals shipped",
+ row_bl:"Unfilled orders",
+ row_wip:"Containers of stock",
+ total:"Total",
+ m_lead:"Order lead time",
+ m_leadS:"from order to shipment",
+ m_serv:"Orders with no wait",
+ m_servS:"parts already at the line",
+ m_wip:"Average stock",
+ m_wipS:"containers in the plant",
+ m_trips:"Mizusumashi runs",
+ m_tripsS:n=>n+' card swaps',
+ sec:"s",
+ ch_inv:"Stock over time (containers)",
+ ch_bl:"Orders waiting over time",
+ l_sup:"Supermarket",
+ l_line:"Line side",
+ l_tr:"On the cart",
+ cap:n=>'card ceiling: '+n,
+ util:"Resource utilisation",
+ famT:"The two loops, measured",
+ f_fam:"Family",
+ f_LP:"Mean L_P",
+ f_LW:"Mean L_W",
+ f_short:"Line stopped for shortage",
+ pushNote:(u,w,d)=>'Departments busy '+u+'% of the time and '+w+' containers of stock, yet only '+d+(d===1?' animal shipped.':' animals shipped.')+' A lot was made, but not what was needed.',
+ kanNote:(c,w)=>'With '+c+' cards in circulation, stock cannot exceed '+c+' containers: at the end of the round there were '+w+'.',
+ next1:"Go to the intermezzo",
+ next2:"Go to the retrospective",
+ next3:"Go to the debrief",
+ anyoneNext:"Anyone in the team can continue: everybody moves on together.",
+ imTitle:"Intermezzo: the two-card system",
+ loopP:"Production loop",
+ loopW:"Withdrawal loop",
+ lp1:"P kanban to the department post",
+ lp2:"part + P kanban",
+ lw1:"W kanban + empty container",
+ lw2:"full + W kanban",
+ kP:"<span class=\"kc p\">P</span> <b>Production kanban</b>: authorises the department to make one container. It only travels between department and supermarket.",
+ kW:"<span class=\"kc w\">W</span> <b>Withdrawal (conveyance) kanban</b>: authorises moving one container from the supermarket to the line. It only travels between supermarket and line side.",
+ cycT:"The cycle, step by step",
+ cyc:["At the line side, when a container starts being used, its W kanban is detached and put in the W kanban post.","At regular intervals the Mizusumashi collects the W kanban and the empty containers and goes to the upstream supermarket.","For each W kanban it takes a full container of the same part: it detaches the P kanban and puts it in the department post, attaches the W kanban in its place and leaves the empty.","It brings the full containers back to the line.","The department builds following the P kanban in order of arrival. The finished part returns to the supermarket with its P kanban."],
+ rulT:"Three rules",
+ rul:["No kanban, no production and no conveyance.","Every full container always carries a card: the number of cards is the stock ceiling.","The P kanban never leaves the production loop; the W kanban never enters the department."],
+ forT:"How many cards?",
+ forD:"D = demand for the part · L = loop lead time · α = safety margin (10%) · a = pieces per container (1)",
+ forDem:"Each part is needed on average once every 32 s (takt 8 s × 4 animals).",
+ estNote:"The lead times below are estimates: you will check them against round 2 data.",
+ measNote:"Lead times measured in round 2.",
+ f_calc:"calculation",
+ f_your:"Your choice",
+ capNow:n=>'Maximum stock with this choice: '+n+' containers.',
+ sharedNote:"Shared choice: every change shows at once on the whole team's phones.",
+ start2:"Start round 2",
+ start3:"Start round 3",
+ retroTitle:"Retrospective",
+ retroLead:"See where the line stopped, recompute the cards and choose what to improve.",
+ i_short:(x,s)=>'Worst shortage: '+x+', line stopped for '+s+' s.',
+ i_noShort:"No shortages: the line never stopped. Can you remove cards?",
+ i_serv:p=>'Orders filled with no wait: '+p+'%.',
+ i_alpha:"The formula uses average demand. With random orders the demand for one part swings widely: either raise α (more cards) or reduce variability.",
+ chooseImp:"Choose up to 2 improvements",
+ maxImp:"Two at most: remove one to choose another.",
+ imp_heijunka:"Heijunka",
+ imp_heijunka_d:"Level the order sequence at assembly: cow, sheep, horse, duck and so on.",
+ imp_pitch:"More frequent runs",
+ imp_pitch_d:"The automatic Mizusumashi leaves every 10 s instead of 20: L_W gets shorter.",
+ imp_smed:"SMED",
+ imp_smed_d:"Changeover in the departments cut by 70%: L_P gets shorter.",
+ imp_std:"Standard work",
+ imp_std_d:"Much more regular build times: variability drops from ±25% to ±8%.",
+ adjust:"Tune the cards",
+ notes:"Notes (on this device only)",
+ dbTitle:"Debrief",
+ cmp:"Rounds compared",
+ h_round:"Round",
+ h_pts:"Points",
+ h_done:"Shipped",
+ h_bl:"Unfilled",
+ h_wip:"Final stock",
+ h_lead:"Lead time",
+ h_serv:"No wait",
+ h_cards:"Cards",
+ ptsChart:"Points per round",
+ insTitle:"What the data says",
+ d1:(a,b)=>'From push to kanban: final stock from '+a+' to '+b+' containers.',
+ d2:(a,b)=>'Animals shipped: '+a+' in round 1, '+b+' in round 3.',
+ d3:(a,b)=>'Order lead time: '+a+' s in round 2, '+b+' s in round 3.',
+ d_heij:"With heijunka the demand for each part becomes regular: the cards from the formula with α = 10% are enough.",
+ d_noheij:"Without levelling you need extra cards to cover the peaks: this is why Toyota keeps α below 10% only after levelling.",
+ qTitle:"Discussion questions",
+ q:["In round 1 the departments were always busy: why were so few animals shipped?","In the kanban system, who authorises production? And who authorises conveyance?","Why two different cards? What would happen with only one?","How are the number of cards and maximum stock related?","Was the formula enough to avoid shortages? What does the α margin cover?","Which improvement let you remove cards, and why?","What happens downstream if the Mizusumashi skips a run?","How did you coordinate between roles? Who needed to know what?"],
+ lTitle:"Takeaways",
+ l:["In push, utilisation is high and stock grows, yet shortages remain: the wrong mix gets built.","Two loops: the P kanban authorises production, the W kanban authorises conveyance. They only meet at the supermarket.","The number of cards sets the maximum stock of each part.","N = D · L · (1 + α) / a: to remove cards, shorten the lead time or reduce variability.","Levelling (heijunka) is a prerequisite of kanban, not an extra.","Removing one card at a time exposes problems: kanban as a kaizen tool."],
+ copy:"Copy the results",
+ copied:"Copied to the clipboard.",
+ copyFail:"Copy failed: select the text below.",
+ team:"Team",
+ none:"none",
+ impL:"Improvements",
+ fTeam:"Team name",
+ fName:"Your name",
+ enter:"Enter the plant",
+ sameTeam:"Whoever types the same team name enters the same plant.",
+ errTeam:"Type the team name (letters or numbers).",
+ errName:"Type your name.",
+ noServer:"The game server is not responding. Try again in a few seconds (the first start can take up to a minute) or play the single-player version.",
+ soloLink:"Single-player version",
+ retry:"Try again",
+ checking:"Connecting to the server…",
+ teacherQ:"Are you the teacher?",
+ pinL:"Teacher PIN",
+ openReg:"Open the control room",
+ resetMsg:"The teacher has reset the session: join again with your team name.",
+ lobbyT:"Team lobby",
+ lobbyLead:"Tap a role to take it or leave it; you can hold more than one. Free roles run automatically.",
+ members:"In the team",
+ take:"Tap to take",
+ leave:"Yours · tap to leave",
+ free:"Free · automatic",
+ heldBy:x=>'Taken by '+x,
+ start1:"Start round 1",
+ startNote:"Anyone in the team can start the round: agree among yourselves!",
+ durNote:s=>'Each round lasts '+clock(s)+' minutes.',
+ roleStrip:"Roles",
+ noRole:"You have no role: tap a free role above to join the game.",
+ spect:"Spectator",
+ spectNote:"Spectator mode: view only.",
+ starting:"The plant is starting up…",
+ waitRes:"Waiting for the results…",
+ offline:"offline · reconnecting…",
+ online:"online",
+ err_taken:"Role already taken by a teammate.",
+ err_net:"No connection: try again.",
+ err_generic:"The operation failed.",
+ tvTitle:"Teacher control room",
+ tvLink:"Link for students",
+ tvCopy:"Copy",
+ tvDur:"Round length",
+ tvDurNote:"Applies to rounds that start from now on.",
+ tvReset:"Reset the session",
+ tvResetQ:"All teams and all results will be deleted. Confirm?",
+ tvResetYes:"Yes, reset everything",
+ tvCancel:"Cancel",
+ tvResetDone:"Session reset.",
+ tvBoard:"Live leaderboard",
+ tvTeams:n=>n===1?'1 team':n+' teams',
+ tvNone:"No team connected. Project the link above and let the students join.",
+ th_rank:"#",
+ th_team:"Team",
+ th_phase:"Phase",
+ th_cards:"Cards",
+ th_imp:"Improvements",
+ th_live:"In play",
+ th_view:"",
+ tvWatch:"Watch",
+ tvPinBad:"Invalid teacher PIN.",
+ tvPinHelp:"Check the PIN (server variable DOCENTE_PIN) and try again.",
+ tvNoSrv:"Server unreachable: trying again shortly…",
+ tvUpd:s=>'updated at '+s,
+ tvDurSet:s=>'Length of the next rounds: '+clock(s)+' minutes.',
+ tvLiveTxt:(r,d,w,s)=>r+' left · '+d+' shipped · '+w+' waiting · '+s+' stock',
+ tvResetNote:"Deletes all teams and generates a new order sequence.",
+ copyOk:"Link copied.",
+ copyKo:"Copy failed: select the link.",
+ minutes:"minutes",
+ pointsW:"points",
+ notesL:"Notes",
+ inTeam:"in the team",
+ tvLang:"Language",
+ tvLangNote:"Default language for the students; each student can still change it on their own device.",
+ tvLangSet:"Default language updated.",
+ ph_lobby:"In the lobby",
+ ph_g1:"Round 1 in progress",
+ ph_s1:"Result 1",
+ ph_inter:"Intermezzo",
+ ph_g2:"Round 2 in progress",
+ ph_s2:"Result 2",
+ ph_retro:"Retrospective",
+ ph_g3:"Round 3 in progress",
+ ph_s3:"Result 3",
+ ph_debrief:"Debrief"
+};
+const TXTS={it:Object.assign(TXT_IT,TXT_IT_X),en:TXT_EN};
+let LANG='it';
+const TXT=new Proxy({},{get:(o,k)=>{const d=TXTS[LANG]||TXTS.it;return d[k]!==undefined?d[k]:TXTS.it[k];}});
 const t=(k,...a)=>{const v=TXT[k];return typeof v==='function'?v(...a):(v===undefined?k:v);};
 const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function clock(s){s=Math.max(0,Math.ceil(s||0));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
-const nf=(x,d)=>x==null||isNaN(x)?'–':Number(x).toLocaleString('it-IT',{maximumFractionDigits:d==null?1:d,minimumFractionDigits:0});
+const nf=(x,d)=>x==null||isNaN(x)?'–':Number(x).toLocaleString(LANG==='it'?'it-IT':'en-GB',{maximumFractionDigits:d==null?1:d,minimumFractionDigits:0});
 const tn=ty=>t('t_'+ty);
 const secs=x=>x==null||isNaN(x)?'–':nf(x,1)+' s';
 const pnName=p=>{const a=String(p).split('-');return t('c_'+a[0])+' '+tn(a[1]);};
@@ -171,6 +506,16 @@ const G={
   anim:lsGet('kg_anim')!=='0',screen:'entry',notes:'',pend:{},entryMsg:'',ping:null,abarKey:'',retryT:null
 };
 ssSet('kg_cid',G.cid);
+/* lingua: scelta personale (sessione) > ?lang= > predefinita del docente > italiano */
+const okLang=l=>l==='it'||l==='en';
+G.langOwn=okLang(Q.get('lang'))?Q.get('lang'):(okLang(ssGet('kg_lang'))?ssGet('kg_lang'):null);
+function applyLang(){
+  const l=G.langOwn||(G.sess&&okLang(G.sess.lang)?G.sess.lang:null)||'it';
+  const ch=l!==LANG;LANG=l;
+  try{document.documentElement.lang=l;document.title=t('title');const b=document.getElementById('brand');if(b)b.textContent=t('title');}catch(e){}
+  return ch;
+}
+LANG=G.langOwn||'it';
 const cache={};
 const $=s=>document.querySelector(s);
 const enc=encodeURIComponent;
@@ -186,7 +531,7 @@ function op(o){
 function errText(e){if(!e)return t('err_generic');if(/taken|occup|preso/i.test(e))return t('err_taken');return t('err_generic')+' ('+e+')';}
 let toastT=null;
 function toast(msg){const el=$('#toast');if(!el)return;el.textContent=msg;el.hidden=false;el.classList.toggle('up',!!document.getElementById('abar'));clearTimeout(toastT);toastT=setTimeout(()=>{el.hidden=true;},2600);}
-function teamLabel(n){n=String(n||'');return /^squadra\b/i.test(n)?n:t('team')+' '+n;}
+function teamLabel(n){n=String(n||'');return /^(squadra|team)\b/i.test(n)?n:t('team')+' '+n;}
 function soloHref(){return /\/team(\/|\/index\.html)?$/.test(location.pathname)?'../index.html':'/solo/';}
 function roomIdOf(s){return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().trim().replace(/\s+/g,'-').replace(/[^A-Z0-9_-]/g,'').slice(0,24);}
 
@@ -223,8 +568,9 @@ function connect(){
 }
 function onMsg(m){
   switch(m.type){
+    case'session':{if(m.session){G.sess=Object.assign({},G.sess,m.session);if(applyLang())render();}break;}
     case'init':{
-      G.R=m.room;G.peers=m.peers||[];if(m.session)G.sess=m.session;
+      G.R=m.room;G.peers=m.peers||[];if(m.session){G.sess=m.session;applyLang();}
       G.S=(m.room&&m.room.phase&&m.room.phase[0]==='g'&&m.S)?m.S:null;
       setOnline(true);clearFx();
       if(!G.view&&G.team&&m.room&&(!m.room.name||m.room.name===m.room.id)&&G.team.trim()!==m.room.id&&roomIdOf(G.team)===m.room.id)op({a:'name',name:G.team.trim().slice(0,24)});
@@ -524,7 +870,7 @@ function loopSVG(){
    '<text x="495" y="34" text-anchor="middle">'+esc(t('lw1'))+'</text><text x="495" y="212" text-anchor="middle">'+esc(t('lw2'))+'</text>'+
    '<text x="225" y="16" text-anchor="middle" style="fill:'+kp+';font-weight:700">'+esc(t('loopP'))+'</text><text x="495" y="16" text-anchor="middle" style="fill:'+kw+';font-weight:700">'+esc(t('loopW'))+'</text></svg>';
 }
-function colName(c){return({k:'nero',w:'bianco',t:'beige',b:'marrone',d:'marrone scuro',r:'rosso',c:'panna',o:'arancione',y:'giallo'})[c];}
+function colName(c){return(LANG==='it'?{k:'nero',w:'bianco',t:'beige',b:'marrone',d:'marrone scuro',r:'rosso',c:'panna',o:'arancione',y:'giallo'}:{k:'black',w:'white',t:'tan',b:'brown',d:'dark brown',r:'red',c:'cream',o:'orange',y:'yellow'})[c];}
 function bomHTML(){
   return'<div class="bom">'+TYPES.map(ty=>{
     let h='<div class="bomc"><div class="bomh">'+full(ty,84)+'<h3>'+tn(ty)+'</h3></div>';
@@ -633,11 +979,11 @@ function updateShared(){
 function resultsText(){
   const L=[t('title')+' · '+t('team')+': '+(R().name||R().id||'')+' · '+G.peers.map(p=>p.name).join(', ')];
   resultsList().forEach(r=>{if(!r)return;
-    let s=t('round')+' '+r.round+' ('+t('r'+r.round+'t')+'): '+r.points+' punti · '+t('h_done')+' '+r.delivered+' · '+t('h_bl')+' '+r.backlog+' · '+t('h_wip')+' '+r.wip+' · '+t('h_lead')+' '+nf(r.lead,0)+' s · '+t('h_serv')+' '+Math.round((r.noWait||0)*100)+'%';
+    let s=t('round')+' '+r.round+' ('+t('r'+r.round+'t')+'): '+r.points+' '+t('pointsW')+' · '+t('h_done')+' '+r.delivered+' · '+t('h_bl')+' '+r.backlog+' · '+t('h_wip')+' '+r.wip+' · '+t('h_lead')+' '+nf(r.lead,0)+' s · '+t('h_serv')+' '+Math.round((r.noWait||0)*100)+'%';
     if(r.mode==='kanban'&&r.nP&&r.nW)s+=' · P '+COMPS.map(c=>r.nP[c]).join('/')+' · W '+COMPS.map(c=>r.nW[c]).join('/')+' ('+r.cards+')';
     if(r.round===3)s+=' · '+t('impL')+': '+((r.imp||[]).length?r.imp.map(k=>t('imp_'+k)).join(', '):t('none'));
     L.push(s);});
-  if(G.notes)L.push('Note: '+G.notes);
+  if(G.notes)L.push(t('notesL')+': '+G.notes);
   return L.join('\n');
 }
 function debriefHTML(){
@@ -659,12 +1005,13 @@ function debriefHTML(){
 const STEPS=['lobby','g1','s1','inter','g2','s2','retro','g3','s3','debrief'];
 function renderTop(){
   const tb=$('#tb');if(!tb)return;
-  if(G.pin!=null){tb.innerHTML='<span class="tb-who"><b>'+t('tvTitle')+'</b></span>';return;}
+  if(G.pin!=null){tb.innerHTML='<span class="tb-who"><b>'+t('tvTitle')+'</b></span><button class="langbtn" data-act="lang" id="tb-lang" aria-label="Language / Lingua">'+(LANG==='it'?'EN':'IT')+'</button>';return;}
   let h='';
   if(G.room){
     h+='<span class="tb-who"><b>'+esc(teamLabel(R().name||G.room))+'</b> · '+(G.view?t('spect'):esc(G.me))+'</span>';
     h+='<span class="conn'+(G.online?'':' off')+'" title="'+(G.online?t('online'):t('offline'))+'"><i></i>'+(G.online?'':t('offline'))+'</span>';
   }
+  h+='<button class="langbtn" data-act="lang" id="tb-lang" aria-label="Language / Lingua">'+(LANG==='it'?'EN':'IT')+'</button>';
   h+='<button class="langbtn" data-act="anim" id="tb-anim" aria-pressed="'+G.anim+'">'+t(G.anim?'animOn':'animOff')+'</button>';
   if(cache.tb!==h){cache.tb=h;tb.innerHTML=h;}
 }
@@ -682,6 +1029,7 @@ function screenOf(){
   return ph;
 }
 function render(){
+  applyLang();
   Object.keys(cache).forEach(k=>delete cache[k]);
   const prev=G.screen,prevPh=G.lastPhase;G.screen=screenOf();G.lastPhase=G.R?G.R.phase:null;G.abarKey='';
   renderTop();
@@ -728,7 +1076,7 @@ function doPing(){
   const done=ok=>{G.ping=ok;if(G.screen==='entry'){const btn=document.getElementById('b-join');
     if(ok&&btn){btn.textContent=t('enter');}else render();}};
   let fin=false;const to=setTimeout(()=>{if(!fin){fin=true;done(false);}},8000);
-  api('/api/ping').then(r=>{if(fin)return;fin=true;clearTimeout(to);done(!!(r&&r.ok));}).catch(()=>{if(fin)return;fin=true;clearTimeout(to);done(false);});
+  api('/api/ping').then(r=>{if(fin)return;fin=true;clearTimeout(to);if(r&&okLang(r.lang)&&G.sess.lang!==r.lang){G.sess.lang=r.lang;if(applyLang()){G.ping=!!r.ok;render();return;}}done(!!(r&&r.ok));}).catch(()=>{if(fin)return;fin=true;clearTimeout(to);done(false);});
 }
 
 /* ---------- Regia docente ---------- */
@@ -743,13 +1091,14 @@ function renderTeacher(){
       (TV.err?'<p class="err">'+t('tvNoSrv')+'</p>':'')+'</div>';return;}
   app.innerHTML='<div class="stack tv"><div><p class="kicker">'+t('kicker')+'</p><h1>'+t('tvTitle')+'</h1></div>'+
    '<div class="ctrl"><div class="panel"><h3>'+t('tvLink')+'</h3><div class="link"><input type="text" id="tv-link" readonly value="'+esc(studentLink())+'" aria-label="'+t('tvLink')+'"><button class="btn primary" data-act="tvcopy">'+t('tvCopy')+'</button></div></div>'+
-   '<div class="panel"><h3>'+t('tvDur')+'</h3><select id="tv-dur" aria-label="'+t('tvDur')+'">'+DUR_OPTS.map(d=>'<option value="'+d+'"'+(d===TV.sess.dur?' selected':'')+'>'+clock(d)+' minuti</option>').join('')+'</select><p class="small muted">'+t('tvDurNote')+'</p></div>'+
+   '<div class="panel"><h3>'+t('tvDur')+'</h3><select id="tv-dur" aria-label="'+t('tvDur')+'">'+DUR_OPTS.map(d=>'<option value="'+d+'"'+(d===TV.sess.dur?' selected':'')+'>'+clock(d)+' '+t('minutes')+'</option>').join('')+'</select><p class="small muted">'+t('tvDurNote')+'</p></div>'+
+   '<div class="panel"><h3>'+t('tvLang')+'</h3><select id="tv-lang" aria-label="'+t('tvLang')+'"><option value="it"'+((TV.sess.lang||'it')==='it'?' selected':'')+'>Italiano</option><option value="en"'+(TV.sess.lang==='en'?' selected':'')+'>English</option></select><p class="small muted">'+t('tvLangNote')+'</p></div>'+
    '<div class="panel" id="tv-reset">'+resetBoxHTML()+'</div></div>'+
    '<section class="panel"><div class="row" style="justify-content:space-between"><h2>'+t('tvBoard')+'</h2><span class="small muted" id="tv-upd"></span></div><div id="tv-board" style="margin-top:10px"></div></section></div>';
   drawBoard();
 }
 function resetBoxHTML(){
-  if(!TV.confirm)return'<h3>'+t('tvReset')+'</h3><p class="small muted">Cancella tutte le squadre e genera una nuova sequenza di ordini.</p><div><button class="btn danger" data-act="tvreset">'+t('tvReset')+'</button></div>';
+  if(!TV.confirm)return'<h3>'+t('tvReset')+'</h3><p class="small muted">'+t('tvResetNote')+'</p><div><button class="btn danger" data-act="tvreset">'+t('tvReset')+'</button></div>';
   return'<div class="confirm"><b>'+t('tvResetQ')+'</b><div class="row"><button class="btn danger" data-act="tvresetyes">'+t('tvResetYes')+'</button><button class="btn" data-act="tvresetno">'+t('tvCancel')+'</button></div></div>';
 }
 function checkPin(){
@@ -759,8 +1108,9 @@ function checkPin(){
 function poll(){
   clearTimeout(TV.timer);
   api('/api/rooms').then(r=>{TV.rooms=(r&&r.rooms)||[];const first=!TV.loaded;TV.loaded=true;
-    if(r&&r.session&&r.session.dur&&r.session.dur!==TV.sess.dur){TV.sess=r.session;const s=document.getElementById('tv-dur');if(s&&document.activeElement!==s)s.value=String(TV.sess.dur);}
-    TV.err=false;TV.upd=new Date().toLocaleTimeString('it-IT');drawBoard();if(first)drawBoard();})
+    if(r&&r.session&&r.session.lang&&r.session.lang!==TV.sess.lang){TV.sess.lang=r.session.lang;G.sess.lang=r.session.lang;if(applyLang()){render();return;}const sl=document.getElementById('tv-lang');if(sl&&document.activeElement!==sl)sl.value=TV.sess.lang;}
+    if(r&&r.session&&r.session.dur&&r.session.dur!==TV.sess.dur){TV.sess.dur=r.session.dur;const s=document.getElementById('tv-dur');if(s&&document.activeElement!==s)s.value=String(TV.sess.dur);}
+    TV.err=false;TV.upd=new Date().toLocaleTimeString(LANG==='it'?'it-IT':'en-GB');drawBoard();if(first)drawBoard();})
    .catch(()=>{TV.err=true;drawBoard();})
    .then(()=>{TV.timer=setTimeout(poll,2000);});
 }
@@ -774,14 +1124,14 @@ function drawBoard(){
   const watch=id=>'?room='+enc(id)+'&view=1'+(Q.get('server')?'&server='+enc(Q.get('server')):'');
   let h='<div class="tablewrap board"><table><thead><tr><th>'+t('th_rank')+'</th><th>'+t('th_team')+'</th><th>'+t('th_phase')+'</th><th>R1</th><th>R2</th><th>R3</th><th>'+t('th_cards')+'</th><th>'+t('th_imp')+'</th><th>'+t('th_live')+'</th><th></th></tr></thead><tbody>';
   rows.forEach((x,i)=>{
-    const roles=x.roles||{},assigned=ROLES.filter(r=>roles[r]).map(r=>t('role_'+r).replace('Reparto ','')+': '+esc(roles[r]));
+    const roles=x.roles||{},assigned=ROLES.filter(r=>roles[r]).map(r=>(COMPS.includes(r)?t('c_'+r):t('role_'+r))+': '+esc(roles[r]));
     const named=new Set(ROLES.map(r=>roles[r]).filter(Boolean)),idle=(x.peers||[]).filter(p=>!named.has(p));
     const mem=(assigned.length?assigned.join(' · '):'tutti i ruoli automatici')+(idle.length?' · senza ruolo: '+idle.map(esc).join(', '):'');
     const ph=x.phase||'lobby',play=ph[0]==='g';
     const pc=k=>{const r=(x.results||[])[k];if(!r||r.points==null)return'<td class="pt muted">–</td>';return'<td class="pt'+(r.points===best[k]&&rows.length>1?' best':'')+(r.points<0?' neg':'')+'">'+r.points+'</td>';};
     const lv=x.live;
-    h+='<tr><td class="rk">'+(i+1)+'</td><td class="tn">'+esc(x.name||x.room)+'<span class="mem">'+((x.peers||[]).length)+' in squadra · '+mem+'</span></td>'+
-      '<td><span class="ph'+(play?' play':'')+'">'+esc(PH_LABEL[ph]||ph)+'</span></td>'+pc(0)+pc(1)+pc(2)+
+    h+='<tr><td class="rk">'+(i+1)+'</td><td class="tn">'+esc(x.name||x.room)+'<span class="mem">'+((x.peers||[]).length)+' '+t('inTeam')+' · '+mem+'</span></td>'+
+      '<td><span class="ph'+(play?' play':'')+'">'+esc(t('ph_'+ph))+'</span></td>'+pc(0)+pc(1)+pc(2)+
       '<td>'+(x.cards!=null&&x.cards!==''?esc(x.cards):'–')+'</td><td class="small" style="text-align:left">'+((x.imp||[]).length?x.imp.map(k=>esc(t('imp_'+k))).join(', '):'–')+'</td>'+
       '<td class="live">'+(lv?esc(t('tvLiveTxt',clock((lv.dur||0)-(lv.t||0)),lv.delivered,lv.waiting,lv.stock)):'–')+'</td>'+
       '<td><a class="btn" href="'+esc(watch(x.room))+'" target="_blank" rel="noopener">'+t('tvWatch')+'</a></td></tr>';
@@ -792,6 +1142,7 @@ function drawBoard(){
 /* ---------- Azioni ---------- */
 function act(a,el){
   switch(a){
+    case'lang':G.langOwn=LANG==='it'?'en':'it';ssSet('kg_lang',G.langOwn);applyLang();render();break;
     case'anim':G.anim=!G.anim;lsSet('kg_anim',G.anim?'1':'0');if(!G.anim)clearFx();cache.tb=null;renderTop();setText('u-anim',t(G.anim?'animOn':'animOff'));break;
     case'retry':G.ping=null;render();break;
     case'role':{if(G.view)break;const r=el.dataset.r,h=holder(r);
@@ -808,7 +1159,7 @@ function act(a,el){
       if(hint)hint.textContent='';G.R.cfg=Object.assign({},c0,{imp});updateShared();op({a:'cfg',nP:c0.nP,nW:c0.nW,imp});break;}
     case'copy':{const msg=document.getElementById('copy-msg'),fail=()=>{if(msg)msg.textContent=t('copyFail');const ta=document.getElementById('f-copy');if(ta)ta.select();};
       try{navigator.clipboard.writeText(resultsText()).then(()=>{if(msg){msg.textContent=t('copied');msg.className='small flash';}},fail);}catch(e){fail();}break;}
-    case'tvcopy':{const inp=document.getElementById('tv-link'),v=studentLink(),ok=()=>toast('Link copiato.'),fail=()=>{if(inp){inp.focus();inp.select();}toast('Copia non riuscita: seleziona il link.');};
+    case'tvcopy':{const inp=document.getElementById('tv-link'),v=studentLink(),ok=()=>toast(t('copyOk')),fail=()=>{if(inp){inp.focus();inp.select();}toast(t('copyKo'));};
       try{navigator.clipboard.writeText(v).then(ok,fail);}catch(e){fail();}break;}
     case'tvreset':TV.confirm=true;setHTML('tv-reset',resetBoxHTML());break;
     case'tvresetno':TV.confirm=false;setHTML('tv-reset',resetBoxHTML());break;
@@ -830,6 +1181,7 @@ document.addEventListener('submit',e=>{
 });
 document.addEventListener('input',e=>{if(e.target.id==='f-notes')G.notes=e.target.value;});
 document.addEventListener('change',e=>{
+  if(e.target.id==='tv-lang'){const l=e.target.value;api('/api/session?pin='+enc(G.pin),{lang:l}).then(r=>{if(r&&r.ok!==false){TV.sess.lang=l;G.sess.lang=l;G.langOwn=null;ssSet('kg_lang','');applyLang();render();toast(t('tvLangSet'));}else toast(t('err_generic'));}).catch(()=>toast(t('err_net')));return;}
   if(e.target.id==='tv-dur'){const d=+e.target.value;api('/api/session?pin='+enc(G.pin),{dur:d}).then(r=>{if(r&&r.ok!==false){TV.sess.dur=d;toast(t('tvDurSet',d));}else toast(t('err_generic'));}).catch(()=>toast(t('err_net')));}
 });
 /* rete di sicurezza: anche senza tick nuovi nessun pezzo resta nascosto */
