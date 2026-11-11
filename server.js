@@ -1,0 +1,317 @@
+/* KanbanGame a squadre — server autorevole (Node >= 18, nessuna dipendenza npm).
+   Una simulazione per stanza (squadra), stato inviato ai client via Server-Sent Events. */
+'use strict';
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const KG = require('./team/engine.js');
+
+const PORT = +process.env.PORT || 3000;
+const PIN = process.env.DOCENTE_PIN || 'lean';
+const SPEED = Math.max(1, Math.round(+process.env.KG_SPEED || 1)); // passi da 0,1 s simulati per ogni tick da 100 ms
+const TEST_DUR = +process.env.KG_TEST_DUR || 0;                     // sovrascrive la durata dei round (test)
+const ROOT = __dirname;
+const TEAM_DIR = path.join(ROOT, 'team');
+const ROLES = ['legs', 'body', 'head', 'mizu', 'asm'];
+const IMPS = ['heijunka', 'pitch', 'smed', 'std'];
+const DURS = [120, 180, 240, 300];
+const NEXT = { lobby: 'g1', s1: 'inter', inter: 'g2', s2: 'retro', retro: 'g3', s3: 'debrief' };
+const ROOM_RE = /^[A-Z0-9_-]{1,24}$/;
+const ROOM_TTL = 24 * 3600 * 1000;
+const LEAVE_GRACE = +process.env.KG_LEAVE_MS || 8000;            // attesa prima di liberare i ruoli di chi esce
+
+const newSeed = () => 1 + Math.floor(Math.random() * 1e9);
+const session = { dur: 180, seed: newSeed() };
+const rooms = new Map();
+const viewers = new Set(); // tutte le risposte SSE aperte (per reset)
+
+/* ---------- stanze ---------- */
+function newRoom(id) {
+  return {
+    id, name: id, phase: 'lobby', round: 0,
+    roles: { legs: null, body: null, head: null, mizu: null, asm: null },
+    cfg: { nP: { legs: 2, body: 2, head: 2 }, nW: { legs: 2, body: 2, head: 2 }, imp: [] },
+    results: [null, null, null], sim: null, ev: [], tickN: 0,
+    members: new Map(), // cid -> {name, conns:Set, view, timer}
+    touched: Date.now(), emptySince: Date.now(),
+  };
+}
+function getRoom(id, create) {
+  if (!id) return null;
+  id = String(id).toUpperCase();
+  if (!ROOM_RE.test(id)) return null;
+  let r = rooms.get(id);
+  if (!r && create) { r = newRoom(id); rooms.set(id, r); }
+  return r || null;
+}
+const pub = r => ({ id: r.id, name: r.name, phase: r.phase, round: r.round, roles: Object.assign({}, r.roles), cfg: JSON.parse(JSON.stringify(r.cfg)), results: r.results });
+const peers = r => [...r.members].filter(([, m]) => !m.view).map(([c, m]) => ({ c, name: m.name }));
+const humans = r => ROLES.filter(k => r.roles[k]);
+const inGame = r => /^g[123]$/.test(r.phase);
+
+function send(res, obj) { try { res.write('data: ' + JSON.stringify(obj) + '\n\n'); } catch (e) { /* ignorato */ } }
+function broadcast(r, obj) {
+  const s = 'data: ' + JSON.stringify(obj) + '\n\n';
+  for (const m of r.members.values()) for (const res of m.conns) { try { res.write(s); } catch (e) { /* ignorato */ } }
+}
+const sendState = r => broadcast(r, { type: 'state', room: pub(r) });
+const sendPeers = r => broadcast(r, { type: 'peers', peers: peers(r) });
+function syncHuman(r) { if (r.sim) { const h = r.sim.S.human; h.length = 0; humans(r).forEach(k => h.push(k)); } }
+
+function freeRoles(r, c) {
+  let ch = false;
+  ROLES.forEach(k => { if (r.roles[k] === c) { r.roles[k] = null; ch = true; } });
+  if (ch) syncHuman(r);
+  return ch;
+}
+
+/* ---------- partita ---------- */
+function startRound(r, n) {
+  r.round = n; r.phase = 'g' + n;
+  const cfg = r.cfg;
+  r.sim = KG.makeSim({
+    mode: n === 1 ? 'push' : 'kanban', dur: TEST_DUR || session.dur, seqSeed: session.seed,
+    nP: Object.assign({}, cfg.nP), nW: Object.assign({}, cfg.nW), imp: n === 3 ? cfg.imp.slice() : [], human: humans(r),
+  });
+  r.ev = []; r.tickN = 0;
+}
+function decimate(a, max) {
+  if (!Array.isArray(a) || a.length <= max) return a;
+  const out = [], step = (a.length - 1) / (max - 1);
+  for (let i = 0; i < max; i++) out.push(a[Math.round(i * step)]);
+  return out;
+}
+function endRound(r) {
+  const res = r.sim.result();
+  res.samples = decimate(res.samples, 90);
+  r.results[r.round - 1] = JSON.parse(JSON.stringify(res));
+  broadcast(r, { type: 'tick', S: r.sim.snapshot(), ev: r.ev.splice(0) });
+  r.sim = null;
+  r.phase = 's' + r.round;
+  sendState(r);
+}
+setInterval(() => {
+  for (const r of rooms.values()) {
+    if (!r.sim || !inGame(r)) continue;
+    const S = r.sim.S;
+    for (let i = 0; i < SPEED && !S.ended; i++) {
+      r.sim.step(0.1);
+      if (S.ev.length) { r.ev.push(...S.ev); S.ev.length = 0; }
+    }
+    if (r.ev.length > 400) r.ev.splice(0, r.ev.length - 400);
+    if (S.ended) { endRound(r); continue; }
+    if (++r.tickN % 2 === 0) broadcast(r, { type: 'tick', S: r.sim.snapshot(), ev: r.ev.splice(0) });
+  }
+}, 100);
+
+/* pulizia: stanze senza client da 24 h; ping SSE ogni 15 s */
+setInterval(() => {
+  const now = Date.now();
+  for (const [id, r] of rooms) {
+    const conns = [...r.members.values()].reduce((s, m) => s + m.conns.size, 0);
+    if (conns) r.emptySince = now;
+    else if (now - r.emptySince > ROOM_TTL) rooms.delete(id);
+  }
+}, 10 * 60 * 1000).unref();
+setInterval(() => { for (const res of viewers) { try { res.write(': ping\n\n'); } catch (e) { /* ignorato */ } } }, 15000).unref();
+
+/* ---------- HTTP ---------- */
+const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET,POST,OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type' };
+function json(res, code, obj) {
+  res.writeHead(code, Object.assign({ 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-cache' }, CORS));
+  res.end(JSON.stringify(obj));
+}
+function readBody(req) {
+  return new Promise(resolve => {
+    let b = '';
+    req.on('data', d => { b += d; if (b.length > 1e5) req.destroy(); });
+    req.on('end', () => { try { resolve(b ? JSON.parse(b) : {}); } catch (e) { resolve(null); } });
+    req.on('error', () => resolve(null));
+  });
+}
+const cleanName = (s, n) => String(s == null ? '' : s).replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, n || 24);
+
+function sse(req, res, q) {
+  const r = getRoom(q.get('room'), true);
+  if (!r) return json(res, 400, { ok: false, error: 'room' });
+  const c = cleanName(q.get('c'), 64) || ('anon' + Math.random().toString(36).slice(2, 8));
+  const view = q.get('view') === '1';
+  res.writeHead(200, Object.assign({ 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' }, CORS));
+  res.write('retry: 2000\n\n');
+  let m = r.members.get(c), isNew = false;
+  if (!m) { m = { name: '', conns: new Set(), view, timer: null }; r.members.set(c, m); isNew = true; }
+  if (m.timer) { clearTimeout(m.timer); m.timer = null; }
+  m.name = cleanName(q.get('name')) || m.name || 'Anonimo';
+  if (!view && m.view) { m.view = false; isNew = true; }
+  m.conns.add(res); viewers.add(res);
+  r.touched = Date.now(); r.emptySince = Date.now();
+  const init = { type: 'init', room: pub(r), peers: peers(r), session: { dur: session.dur } };
+  if (r.sim) init.S = r.sim.snapshot();
+  send(res, init);
+  if (isNew && !view) sendPeers(r);
+  req.on('close', () => {
+    m.conns.delete(res); viewers.delete(res);
+    if (m.conns.size || r.members.get(c) !== m) return;
+    m.timer = setTimeout(() => {
+      m.timer = null;
+      if (m.conns.size || r.members.get(c) !== m) return;
+      r.members.delete(c);
+      const ch = freeRoles(r, c);
+      if (!m.view) sendPeers(r);
+      if (ch) sendState(r);
+    }, LEAVE_GRACE);
+  });
+}
+
+function validN(o) {
+  if (!o || typeof o !== 'object') return null;
+  const out = {};
+  for (const k of ['legs', 'body', 'head']) {
+    const v = Math.round(+o[k]);
+    if (!(v >= 1 && v <= 5)) return null;
+    out[k] = v;
+  }
+  return out;
+}
+
+function op(r, b) {
+  const c = b.c, m = c != null ? r.members.get(String(c)) : null;
+  switch (b.a) {
+    case 'role': case 'unrole': {
+      if (!m || m.view) return 'notMember';
+      if (!ROLES.includes(b.role)) return 'role';
+      if (b.a === 'role') {
+        if (r.roles[b.role] === c) return '';
+        if (r.roles[b.role]) return 'taken';
+        r.roles[b.role] = c;
+      } else {
+        if (r.roles[b.role] !== c) return 'notYours';
+        r.roles[b.role] = null;
+      }
+      syncHuman(r); sendState(r); return '';
+    }
+    case 'cfg': {
+      if (r.phase !== 'inter' && r.phase !== 'retro') return 'phase';
+      const nc = JSON.parse(JSON.stringify(r.cfg));
+      if (b.nP !== undefined) { const v = validN(b.nP); if (!v) return 'nP'; nc.nP = v; }
+      if (b.nW !== undefined) { const v = validN(b.nW); if (!v) return 'nW'; nc.nW = v; }
+      if (b.imp !== undefined) {
+        if (r.phase !== 'retro') return 'phase';
+        if (!Array.isArray(b.imp) || b.imp.length > 2 || b.imp.some(x => !IMPS.includes(x)) || new Set(b.imp).size !== b.imp.length) return 'imp';
+        nc.imp = b.imp.slice();
+      }
+      r.cfg = nc; sendState(r); return '';
+    }
+    case 'next': {
+      const nx = NEXT[r.phase];
+      if (!nx) return 'phase';
+      if (/^g/.test(nx)) startRound(r, +nx[1]);
+      else { r.phase = nx; r.sim = null; }
+      sendState(r);
+      if (r.sim) broadcast(r, { type: 'tick', S: r.sim.snapshot(), ev: [] });
+      return '';
+    }
+    case 'act': {
+      if (!inGame(r) || !r.sim) return 'phase';
+      if (!ROLES.includes(b.role)) return 'role';
+      if (c == null || r.roles[b.role] !== c) return 'notYours';
+      const why = r.sim.can(b.role, b.action, b.arg);
+      if (why) return why;
+      r.sim.act(b.role, b.action, b.arg);
+      if (r.sim.S.ev.length) { r.ev.push(...r.sim.S.ev); r.sim.S.ev.length = 0; }
+      return '';
+    }
+    case 'name': {
+      const n = cleanName(b.name);
+      if (!n) return 'name';
+      r.name = n; sendState(r); return '';
+    }
+  }
+  return 'unknown';
+}
+
+function roomsInfo() {
+  const sumPN = o => KG.PN.reduce((s, p) => s + o[p].length, 0);
+  const list = [...rooms.values()].map(r => {
+    const nameOf = c => { const m = c && r.members.get(c); return m ? m.name : null; };
+    const roles = {}; ROLES.forEach(k => roles[k] = nameOf(r.roles[k]));
+    let live = null;
+    if (r.sim) {
+      const S = r.sim.S;
+      live = { t: S.t, dur: S.dur, delivered: S.delivered.length, waiting: S.queue.length, stock: sumPN(S.super) + sumPN(S.line) + S.mizu.full.length };
+    }
+    return {
+      room: r.id, name: r.name, peers: peers(r).map(p => p.name), phase: r.phase, round: r.round, roles,
+      cards: KG.COMPS.reduce((s, k) => s + 4 * (r.cfg.nP[k] + r.cfg.nW[k]), 0), imp: r.cfg.imp.slice(),
+      results: r.results.map(x => x ? { points: x.points, delivered: x.delivered, backlog: x.backlog, wip: x.wip, lead: x.lead, noWait: x.noWait } : null),
+      live,
+    };
+  });
+  return { rooms: list, session: { dur: session.dur }, now: Date.now() };
+}
+
+const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'application/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json; charset=utf-8',
+  '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json', '.txt': 'text/plain; charset=utf-8' };
+function serveFile(res, file, head) {
+  fs.stat(file, (err, st) => {
+    if (err || !st.isFile()) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Non trovato'); }
+    res.writeHead(200, { 'Content-Type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream', 'Cache-Control': 'no-cache', 'Content-Length': st.size });
+    if (head) return res.end();
+    fs.createReadStream(file).pipe(res);
+  });
+}
+function serveStatic(req, res, pathname) {
+  let p;
+  try { p = decodeURIComponent(pathname); } catch (e) { res.writeHead(400); return res.end(); }
+  if (p.includes('\0')) { res.writeHead(400); return res.end(); }
+  const head = req.method === 'HEAD';
+  if (p === '/solo') { res.writeHead(301, { Location: '/solo/' }); return res.end(); }
+  if (p === '/solo/' || p === '/solo/index.html') return serveFile(res, path.join(ROOT, 'index.html'), head);
+  if (p.endsWith('/')) p += 'index.html';
+  const file = path.resolve(TEAM_DIR, '.' + path.posix.normalize(p));
+  if (file !== TEAM_DIR && !file.startsWith(TEAM_DIR + path.sep)) { res.writeHead(403); return res.end(); }
+  serveFile(res, file, head);
+}
+
+const server = http.createServer(async (req, res) => {
+  const u = new URL(req.url, 'http://x');
+  const q = u.searchParams, pn = u.pathname;
+  if (req.method === 'OPTIONS') { res.writeHead(204, CORS); return res.end(); }
+  if (pn.startsWith('/api/')) {
+    if (pn === '/api/ping') return json(res, 200, { ok: true, app: 'kanban-game' });
+    if (pn === '/api/events' && req.method === 'GET') return sse(req, res, q);
+    if (pn === '/api/rooms' && req.method === 'GET') return json(res, 200, roomsInfo());
+    if (pn === '/api/pin') return json(res, 200, { ok: q.get('pin') === PIN });
+    if (req.method !== 'POST') return json(res, 405, { ok: false, error: 'method' });
+    const b = await readBody(req);
+    if (pn === '/api/op') {
+      if (!b || typeof b !== 'object') return json(res, 400, { ok: false, error: 'body' });
+      const r = getRoom(q.get('room'), false);
+      if (!r) return json(res, 404, { ok: false, error: 'noRoom' });
+      if (b.c != null) b.c = String(b.c);
+      r.touched = Date.now();
+      const err = op(r, b);
+      return json(res, 200, err ? { ok: false, error: err } : { ok: true });
+    }
+    if (pn === '/api/session' || pn === '/api/reset') {
+      if (q.get('pin') !== PIN) return json(res, 403, { ok: false, error: 'pin' });
+      if (pn === '/api/session') {
+        const d = +(b && b.dur);
+        if (!DURS.includes(d)) return json(res, 400, { ok: false, error: 'dur' });
+        session.dur = d;
+        return json(res, 200, { ok: true, session: { dur: session.dur } });
+      }
+      session.seed = newSeed();
+      for (const r of rooms.values()) {
+        broadcast(r, { type: 'reset' });
+        for (const m of r.members.values()) { if (m.timer) clearTimeout(m.timer); for (const x of m.conns) { viewers.delete(x); try { x.end(); } catch (e) { /* ignorato */ } } }
+      }
+      rooms.clear();
+      return json(res, 200, { ok: true });
+    }
+    return json(res, 404, { ok: false, error: 'notFound' });
+  }
+  if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
+  serveStatic(req, res, pn);
+});
+server.listen(PORT, () => console.log('kanban-game in ascolto sulla porta ' + PORT + (SPEED > 1 ? ' (KG_SPEED=' + SPEED + ')' : '') + (TEST_DUR ? ' (KG_TEST_DUR=' + TEST_DUR + ')' : '')));

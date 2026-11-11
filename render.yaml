@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: kanban-game
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: "true"
+    startCommand: node server.js
+    healthCheckPath: /api/ping
+    envVars:
+      - key: DOCENTE_PIN
+        value: lean

@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Fattoria LEGO a squadre · doppio kanban</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Lilita+One&family=Permanent+Marker&display=swap" rel="stylesheet">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="offbar" id="offbar" role="status" hidden>Connessione persa · riconnessione…</div>
+<header class="topbar"><span class="brand" id="brand">Fattoria LEGO a squadre</span><span class="tb-r" id="tb"></span></header>
+<nav class="nav" id="nav" aria-label="Fasi della partita" hidden></nav>
+<main id="app"><noscript>Per giocare serve JavaScript.</noscript></main>
+<div id="flylayer" aria-hidden="true"></div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+<script>
+/* Indirizzo del server di gioco: vuoto = stesso sito. Si può anche usare ?server=https://... */
+window.KG_SERVER = window.KG_SERVER || '';
+</script>
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

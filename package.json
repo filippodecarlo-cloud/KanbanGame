@@ -1,0 +1,13 @@
+{
+  "name": "kanban-game",
+  "version": "1.0.0",
+  "description": "Fattoria LEGO a doppio kanban - versione a squadre (server autorevole, SSE, nessuna dipendenza)",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test-server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
