@@ -309,8 +309,6 @@ function serveStatic(req, res, pathname) {
   try { p = decodeURIComponent(pathname); } catch (e) { res.writeHead(400); return res.end(); }
   if (p.includes('\0')) { res.writeHead(400); return res.end(); }
   const head = req.method === 'HEAD';
-  if (p === '/solo') { res.writeHead(301, { Location: '/solo/' }); return res.end(); }
-  if (p === '/solo/' || p === '/solo/index.html') return serveFile(res, path.join(ROOT, 'index.html'), head);
   if (p.endsWith('/')) p += 'index.html';
   const file = path.resolve(TEAM_DIR, '.' + path.posix.normalize(p));
   if (file !== TEAM_DIR && !file.startsWith(TEAM_DIR + path.sep)) { res.writeHead(403); return res.end(); }

@@ -300,7 +300,7 @@ async function main() {
   ok(r.status === 200 || r.status === 404, '/ risponde (' + r.status + ')');
   ok(r.headers['cache-control'] === 'no-cache' || r.status === 404, 'Cache-Control no-cache');
   r = await get('/engine.js'); ok(r.status === 200 && r.body.includes('makeSim') && /javascript/.test(r.headers['content-type']), '/engine.js servito da team/');
-  r = await get('/solo/'); ok(r.status === 200 && /<html/i.test(r.body) && /text\/html/.test(r.headers['content-type']), '/solo/ -> index.html della radice');
+  r = await get('/solo/'); ok(r.status === 404, '/solo/ non più servito (niente versione singola dal server)');
   r = await get('/../server.js'); ok(r.status !== 200 || !r.body.includes('createServer'), 'traversal ../ bloccato');
   r = await get('/%2e%2e/server.js'); ok(r.status !== 200 || !r.body.includes('createServer'), 'traversal %2e%2e bloccato');
   r = await get('/..%2fserver.js'); ok(r.status !== 200 || !r.body.includes('createServer'), 'traversal %2f bloccato');

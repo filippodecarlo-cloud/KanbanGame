@@ -127,7 +127,7 @@ const TXT_IT={
  /* ingresso e sala */
  fTeam:'Nome della squadra',fName:'Il tuo nome',enter:'Entra nello stabilimento',sameTeam:'Chi scrive lo stesso nome di squadra entra nello stesso stabilimento.',
  errTeam:'Scrivi il nome della squadra (lettere o numeri).',errName:'Scrivi il tuo nome.',
- noServer:'Il server di gioco non risponde. Riprova tra qualche secondo (al primo avvio può servire fino a un minuto) oppure gioca la versione a giocatore singolo.',
+ noServer:'Il server di gioco non risponde. Riprova tra qualche secondo (al primo avvio può servire fino a un minuto)',
  soloLink:'Versione a giocatore singolo',retry:'Riprova',checking:'Collegamento al server…',
  teacherQ:'Sei il docente?',pinL:'PIN docente',openReg:'Apri la regia',resetMsg:'Il docente ha azzerato la sessione: rientrate con il nome della squadra.',
  lobbyT:'Sala della squadra',lobbyLead:'Tocca un ruolo per prenderlo o lasciarlo; puoi tenerne più di uno. I ruoli liberi lavorano in automatico.',
@@ -407,7 +407,7 @@ const TXT_EN={
  sameTeam:"Whoever types the same team name enters the same plant.",
  errTeam:"Type the team name (letters or numbers).",
  errName:"Type your name.",
- noServer:"The game server is not responding. Try again in a few seconds (the first start can take up to a minute) or play the single-player version.",
+ noServer:"The game server is not responding. Try again in a few seconds (the first start can take up to a minute)",
  soloLink:"Single-player version",
  retry:"Try again",
  checking:"Connecting to the server…",
@@ -558,7 +558,6 @@ function errText(e){if(!e)return t('err_generic');if(/taken|occup|preso/i.test(e
 let toastT=null;
 function toast(msg){const el=$('#toast');if(!el)return;el.textContent=msg;el.hidden=false;el.classList.toggle('up',!!document.getElementById('abar'));clearTimeout(toastT);toastT=setTimeout(()=>{el.hidden=true;},2600);}
 function teamLabel(n){n=String(n||'');return /^(squadra|team)\b/i.test(n)?n:t('team')+' '+n;}
-function soloHref(){return /\/team(\/|\/index\.html)?$/.test(location.pathname)?'../index.html':'/solo/';}
 function roomIdOf(s){return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toUpperCase().trim().replace(/\s+/g,'-').replace(/[^A-Z0-9_-]/g,'').slice(0,24);}
 
 /* ---------- Ruoli e operatori ---------- */
@@ -921,13 +920,13 @@ function entryHTML(){
   const p=G.ping;
   let h='<div class="stack entry"><div><p class="kicker">'+t('kicker')+'</p><h1>'+t('title')+'</h1><p class="lead">'+t('lead')+'</p></div>';
   if(G.entryMsg)h+='<p class="note">'+esc(G.entryMsg)+'</p>';
-  if(p===false)h+='<div class="warnbox"><p>'+t('noServer')+'</p><div class="row"><button class="btn" data-act="retry">'+t('retry')+'</button><a class="btn" href="'+esc(soloHref())+'">'+t('soloLink')+'</a></div></div>';
+  if(p===false)h+='<div class="warnbox"><p>'+t('noServer')+'</p><div class="row"><button class="btn" data-act="retry">'+t('retry')+'</button></div></div>';
   h+='<form class="panel" id="f-join" autocomplete="on"><div class="field"><label for="f-team">'+t('fTeam')+'</label><input type="text" id="f-team" name="team" maxlength="24" autocapitalize="characters" value="'+esc(G.team)+'" required></div>'+
     '<div class="field"><label for="f-name">'+t('fName')+'</label><input type="text" id="f-name" name="nickname" maxlength="20" value="'+esc(G.me)+'" required></div>'+
     '<p class="small muted" style="margin-top:8px">'+t('sameTeam')+'</p><p class="err" id="f-err"></p>'+
     '<button class="btn primary" type="submit" id="b-join">'+(p==null?t('checking'):t('enter'))+'</button></form>'+
     '<details class="teach"><summary>'+t('teacherQ')+'</summary><form class="row" id="f-pin"><input type="text" id="f-pinv" aria-label="'+t('pinL')+'" placeholder="'+t('pinL')+'" autocomplete="off"><button class="btn" type="submit">'+t('openReg')+'</button></form></details>'+
-    '<p class="credit">'+t('credit')+' · <a href="'+esc(soloHref())+'">'+t('soloLink')+'</a></p></div>';
+    '<p class="credit">'+t('credit')+'</p></div>';
   return h;
 }
 function closedHTML(){
@@ -935,7 +934,7 @@ function closedHTML(){
     '<div class="panel closedbox" role="status"><div class="lock" aria-hidden="true"><svg viewBox="0 0 48 48" width="56" height="56"><rect x="9" y="21" width="30" height="22" rx="4" fill="var(--accent)" stroke="var(--ink)" stroke-width="2.5"/><path d="M16 21v-6a8 8 0 0 1 16 0v6" fill="none" stroke="var(--ink)" stroke-width="3.5"/><circle cx="24" cy="31" r="3" fill="#fff"/><rect x="22.6" y="32" width="2.8" height="6" rx="1.2" fill="#fff"/></svg></div>'+
     '<h2>'+t('closedT')+'</h2><p class="lead">'+t('closedP')+'</p>'+
     '<button class="btn primary" data-act="reopen" id="b-reopen">'+t('retry')+'</button>'+
-    '<p class="small muted">'+t('closedSolo')+'</p><a class="btn" href="'+esc(soloHref())+'">'+t('soloLink')+'</a></div>'+
+    '</div>'+
     '<p class="credit">'+t('credit')+'</p></div></div>';
 }
 function roleCardsHTML(){

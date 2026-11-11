@@ -27,7 +27,7 @@ team/index.html       W2
 team/app.js           W2
 team/style.css        W2
 ```
-Il server serve `team/` come radice del sito (`/` → team/index.html) e `/solo/` → l'`index.html` della radice del repo.
+Il server serve `team/` come radice del sito (`/` → team/index.html) . (Il percorso `/solo/` è stato rimosso: nessun link alla versione a giocatore singolo.)
 
 ## Motore (W1) — estensioni a makeSim
 - `cfg.human`: **array** di ruoli umani tra `legs, body, head, mizu, asm` (prima era una stringa). `S.human` = array.
@@ -92,7 +92,7 @@ Tick: `setInterval` 100 ms; per ogni stanza in partita `sim.step(0.1)`; ogni 200
 
 Schermate:
 1. **Ingresso**: nome della squadra + il tuo nome → entra (`?room=NOME` precompila). Chi scrive lo stesso nome squadra entra nello stesso stabilimento.
-   Se `/api/ping` fallisce: messaggio chiaro + link alla versione a giocatore singolo (`/solo/` oppure `../index.html`).
+   Se `/api/ping` fallisce: messaggio chiaro + «Riprova» (nessun link alla versione a giocatore singolo).
 2. **Sala (lobby)**: i 5 ruoli come carte (Reparto Zampe, Reparto Corpi, Reparto Teste, Mizusumashi, Assemblaggio finale) con chi li ha presi;
    tocca per prendere/lasciare; i ruoli liberi sono «automatico». Breve spiegazione dei due cartellini (riusare schema dei due anelli e distinta base).
    Pulsante «Inizia il round 1» (chiunque).
