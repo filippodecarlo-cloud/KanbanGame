@@ -344,3 +344,32 @@ details.teach .btn{width:auto;margin-top:0;min-height:44px}
   .abar .grp{gap:5px}
   .abar .hint{font-size:.82rem;min-height:1.1em}
 }
+/* telefoni: prima le proprie postazioni, barra azioni compatta (W3) */
+@media(max-width:1039px){
+  .floor>.zone{order:var(--o,0)}
+  #z-dept .dept.you{order:-1}
+}
+@media(max-width:640px){
+  .hud{flex-wrap:nowrap;gap:10px;padding:6px 10px}
+  .hud .pill{font-size:.9rem;white-space:nowrap}
+  .hud .pill .pt{display:none}
+  .clock{font-size:1.5rem}
+  .hstat span{font-size:.62rem;letter-spacing:.03em}
+  .hstat b{font-size:1.05rem}
+  /* reparti degli altri: solo intestazione, cassetta e stato */
+  .dept:not(.you){min-height:0;gap:3px;padding:6px 8px}
+  .dept:not(.you) .build,.dept:not(.you) .last,.dept:not(.you) .ebox{display:none}
+  .dept:not(.you) .bar{height:4px}
+  .abar{max-height:45vh;padding:6px 8px 8px;gap:6px;margin-top:8px}
+  .abar .grp{grid-template-columns:auto minmax(0,1fr);align-items:center;column-gap:8px;row-gap:5px}
+  .abar .grp>.acts,.abar .grp>.bar{grid-column:1/-1}
+  .abar .grp>.gh{grid-row:1;grid-column:1}
+  .abar .grp>.hint{grid-row:1;grid-column:2;min-height:0;overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;font-size:.78rem;line-height:1.2}
+  .abar .gh .tape{font-size:.78rem;padding:2px 8px 1px}
+  .abar .grp>.bar{height:4px}
+  .abar .acts{flex-wrap:nowrap;gap:6px}
+  .abar .btn{flex:1 1 0;min-width:0;min-height:44px;padding:4px 5px;font-size:.8rem;line-height:1.1;box-shadow:0 2px 0 var(--ink)}
+  .abar .btn.wide{flex-basis:0}
+  .abar .btn.away{display:none}
+  .abar .btn .bc{display:none}
+}

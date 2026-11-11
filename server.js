@@ -31,7 +31,7 @@ function newRoom(id) {
     id, name: id, phase: 'lobby', round: 0,
     roles: { legs: null, body: null, head: null, mizu: null, asm: null },
     cfg: { nP: { legs: 2, body: 2, head: 2 }, nW: { legs: 2, body: 2, head: 2 }, imp: [] },
-    results: [null, null, null], sim: null, ev: [], tickN: 0,
+    results: [null, null, null], sim: null, ev: [], tickN: 0, lastRoles: new Map(),
     members: new Map(), // cid -> {name, conns:Set, view, timer}
     touched: Date.now(), emptySince: Date.now(),
   };
@@ -93,16 +93,19 @@ function endRound(r) {
 setInterval(() => {
   for (const r of rooms.values()) {
     if (!r.sim || !inGame(r)) continue;
+    try { tickRoom(r); } catch (e) { console.error('tick ' + r.id + ':', e && e.stack || e); }
+  }
+}, 100);
+function tickRoom(r) {
     const S = r.sim.S;
     for (let i = 0; i < SPEED && !S.ended; i++) {
       r.sim.step(0.1);
       if (S.ev.length) { r.ev.push(...S.ev); S.ev.length = 0; }
     }
     if (r.ev.length > 400) r.ev.splice(0, r.ev.length - 400);
-    if (S.ended) { endRound(r); continue; }
+    if (S.ended) { endRound(r); return; }
     if (++r.tickN % 2 === 0) broadcast(r, { type: 'tick', S: r.sim.snapshot(), ev: r.ev.splice(0) });
-  }
-}, 100);
+}
 
 /* pulizia: stanze senza client da 24 h; ping SSE ogni 15 s */
 setInterval(() => {
@@ -144,11 +147,18 @@ function sse(req, res, q) {
   m.name = cleanName(q.get('name')) || m.name || 'Anonimo';
   if (!view && m.view) { m.view = false; isNew = true; }
   m.conns.add(res); viewers.add(res);
+  let back = false;
+  if (isNew && !view && r.lastRoles.has(c)) { /* rientro dopo l'uscita (telefono bloccato, rete persa): ridà i ruoli ancora liberi */
+    r.lastRoles.get(c).forEach(k => { if (!r.roles[k]) { r.roles[k] = c; back = true; } });
+    r.lastRoles.delete(c);
+    if (back) syncHuman(r);
+  }
   r.touched = Date.now(); r.emptySince = Date.now();
   const init = { type: 'init', room: pub(r), peers: peers(r), session: { dur: session.dur } };
   if (r.sim) init.S = r.sim.snapshot();
   send(res, init);
   if (isNew && !view) sendPeers(r);
+  if (back) sendState(r);
   req.on('close', () => {
     m.conns.delete(res); viewers.delete(res);
     if (m.conns.size || r.members.get(c) !== m) return;
@@ -156,6 +166,8 @@ function sse(req, res, q) {
       m.timer = null;
       if (m.conns.size || r.members.get(c) !== m) return;
       r.members.delete(c);
+      const had = ROLES.filter(k => r.roles[k] === c);
+      if (had.length && !m.view) r.lastRoles.set(c, had);
       const ch = freeRoles(r, c);
       if (!m.view) sendPeers(r);
       if (ch) sendState(r);
@@ -184,6 +196,7 @@ function op(r, b) {
         if (r.roles[b.role] === c) return '';
         if (r.roles[b.role]) return 'taken';
         r.roles[b.role] = c;
+        for (const l of r.lastRoles.values()) { const i = l.indexOf(b.role); if (i >= 0) l.splice(i, 1); }
       } else {
         if (r.roles[b.role] !== c) return 'notYours';
         r.roles[b.role] = null;
@@ -203,6 +216,7 @@ function op(r, b) {
       r.cfg = nc; sendState(r); return '';
     }
     case 'next': {
+      if (b.from != null && b.from !== r.phase) return 'phase';
       const nx = NEXT[r.phase];
       if (!nx) return 'phase';
       if (/^g/.test(nx)) startRound(r, +nx[1]);
@@ -273,8 +287,15 @@ function serveStatic(req, res, pathname) {
   serveFile(res, file, head);
 }
 
-const server = http.createServer(async (req, res) => {
-  const u = new URL(req.url, 'http://x');
+const server = http.createServer((req, res) => {
+  handle(req, res).catch(e => {
+    console.error('richiesta ' + req.url + ':', e && e.stack || e);
+    try { if (!res.headersSent) json(res, 500, { ok: false, error: 'server' }); else res.end(); } catch (x) { /* ignorato */ }
+  });
+});
+async function handle(req, res) {
+  let u;
+  try { u = new URL(req.url, 'http://x'); } catch (e) { res.writeHead(400); return res.end(); }
   const q = u.searchParams, pn = u.pathname;
   if (req.method === 'OPTIONS') { res.writeHead(204, CORS); return res.end(); }
   if (pn.startsWith('/api/')) {
@@ -313,5 +334,7 @@ const server = http.createServer(async (req, res) => {
   }
   if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405); return res.end(); }
   serveStatic(req, res, pn);
-});
+}
+process.on('uncaughtException', e => console.error('errore non gestito:', e && e.stack || e));
+process.on('unhandledRejection', e => console.error('promessa rifiutata:', e && e.stack || e));
 server.listen(PORT, () => console.log('kanban-game in ascolto sulla porta ' + PORT + (SPEED > 1 ? ' (KG_SPEED=' + SPEED + ')' : '') + (TEST_DUR ? ' (KG_TEST_DUR=' + TEST_DUR + ')' : '')));

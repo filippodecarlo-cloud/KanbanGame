@@ -92,7 +92,7 @@ const TXT={
  m_lead:'Lead time ordine',m_leadS:'dall\'ordine alla spedizione',m_serv:'Ordini senza attesa',m_servS:'pezzi già a bordo linea',m_wip:'Scorta media',m_wipS:'contenitori in stabilimento',m_trips:'Giri del Mizusumashi',m_tripsS:n=>n+' scambi di cartellini',sec:'s',
  ch_inv:'Scorte nel tempo (contenitori)',ch_bl:'Ordini in attesa nel tempo',l_sup:'Supermarket',l_line:'Bordo linea',l_tr:'Sul carrello',cap:n=>'tetto dei cartellini: '+n,
  util:'Utilizzo delle risorse',famT:'I due anelli, misurati',f_fam:'Famiglia',f_LP:'L_P medio',f_LW:'L_W medio',f_short:'Linea ferma per mancante',
- pushNote:(u,w,d)=>'Reparti occupati al '+u+'% e '+w+' contenitori di scorta, ma solo '+d+' animali spediti. Si è prodotto molto, ma non quello che serviva.',
+ pushNote:(u,w,d)=>'Reparti occupati al '+u+'% e '+w+' contenitori di scorta, ma solo '+d+(d===1?' animale spedito.':' animali spediti.')+' Si è prodotto molto, ma non quello che serviva.',
  kanNote:(c,w)=>'Con '+c+' cartellini in circolo la scorta non può superare '+c+' contenitori: a fine round erano '+w+'.',
  next1:'Vai all\'intermezzo',next2:'Vai alla retrospettiva',next3:'Vai al debriefing',anyoneNext:'Chiunque della squadra può proseguire: si va avanti tutti insieme.',
  imTitle:'Intermezzo: il sistema a due cartellini',
@@ -149,6 +149,7 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;'
 function clock(s){s=Math.max(0,Math.ceil(s||0));return Math.floor(s/60)+':'+String(s%60).padStart(2,'0');}
 const nf=(x,d)=>x==null||isNaN(x)?'–':Number(x).toLocaleString('it-IT',{maximumFractionDigits:d==null?1:d,minimumFractionDigits:0});
 const tn=ty=>t('t_'+ty);
+const secs=x=>x==null||isNaN(x)?'–':nf(x,1)+' s';
 const pnName=p=>{const a=String(p).split('-');return t('c_'+a[0])+' '+tn(a[1]);};
 const full=(ty,w)=>drawModel(ty,{w});
 const CART='<svg viewBox="0 0 40 24" width="40" height="24" aria-hidden="true"><rect x="3" y="4" width="26" height="12" rx="1.5" fill="#3d5a80" stroke="'+INK+'"/><path d="M29 14h8" stroke="'+INK+'" stroke-width="2"/><circle cx="10" cy="19" r="3.4" fill="'+INK+'"/><circle cx="24" cy="19" r="3.4" fill="'+INK+'"/></svg>';
@@ -180,7 +181,7 @@ function api(p,body){
 }
 function op(o){
   if(!G.room||G.view)return Promise.resolve({ok:false});
-  return api('/api/op?room='+enc(G.room),Object.assign({c:G.cid},o)).then(r=>{if(r&&!r.ok&&o.a!=='act')toast(errText(r.error));return r;}).catch(()=>{toast(t('err_net'));return{ok:false};});
+  return api('/api/op?room='+enc(G.room),Object.assign({c:G.cid},o)).then(r=>{if(r&&!r.ok&&o.a!=='act'&&!(o.a==='next'&&r.error==='phase'))toast(errText(r.error));return r;}).catch(()=>{toast(t('err_net'));return{ok:false};});
 }
 function errText(e){if(!e)return t('err_generic');if(/taken|occup|preso/i.test(e))return t('err_taken');return t('err_generic')+' ('+e+')';}
 let toastT=null;
@@ -245,14 +246,14 @@ function onMsg(m){
 }
 function onReset(){
   if(G.es){try{G.es.close();}catch(e){}}G.es=null;clearTimeout(G.retryT);
-  G.room=null;G.R=null;G.S=null;G.view=false;G.notes='';clearFx();
+  G.room=null;G.R=null;G.S=null;G.view=false;G.notes='';clearFx();ssSet('kg_joined','');
   G.entryMsg=t('resetMsg');
   try{history.replaceState(null,'',location.pathname+(Q.get('server')?'?server='+enc(Q.get('server')):''));}catch(e){}
   setOnline(true);render();
 }
 function join(team,name){
   G.team=team;G.me=name;lsSet('kg_team',team);lsSet('kg_name',name);
-  G.room=roomIdOf(team);
+  G.room=roomIdOf(team);ssSet('kg_joined',G.room);
   try{const q=new URLSearchParams(location.search);q.set('room',team);q.delete('view');history.replaceState(null,'',location.pathname+'?'+q.toString());}catch(e){}
   G.entryMsg='';G.R=null;render();connect();
 }
@@ -341,12 +342,12 @@ function roleStripHTML(){
 }
 function gameSkeleton(){
   const S=G.S,n=R().round||+String(R().phase).slice(1),kan=S.mode==='kanban';
-  let h='<section><div class="hud"><span class="pill">'+t('round')+' '+n+'/3 · '+t('r'+n+'t')+'</span><span class="clock" id="u-clock"></span>'+
+  let h='<section><div class="hud"><span class="pill">'+t('round')+' '+n+'/3<span class="pt"> · '+t('r'+n+'t')+'</span></span><span class="clock" id="u-clock"></span>'+
    '<span class="hstat"><span>'+t('shipped')+'</span><b id="u-ship">0</b></span><span class="hstat"><span>'+t('waiting')+'</span><b id="u-wait">0</b></span><span class="hstat"><span>'+t('stock')+'</span><b id="u-stock">0</b></span><span class="sp"></span>'+
    '</div>';
   h+='<div class="rstrip" id="rstrip">'+roleStripHTML()+'</div>';
   if(kan)h+='<p class="legendk small">'+t('legend',cardHTML('P','legs-cow',-1,true),cardHTML('W','body-duck',-2,true))+'</p>';
-  h+='<div class="floor">'+
+  h+='<div class="floor" id="floor">'+
    '<div class="zone za-dept"><div class="zh"><span class="tape">'+t('z_dept')+'</span></div><div id="z-dept" class="stack" style="gap:8px"></div></div>'+
    '<div class="zone za-super"><div class="zh"><span class="tape">'+t('z_super')+'</span></div><div id="z-super"></div></div>'+
    '<div class="zone za-mizu" id="zone-mizu"><div class="zh"><span class="tape">'+t('z_mizu')+'</span><span class="small muted" id="z-trip"></span><span id="op-mizu"></span></div><div class="corr"><span class="stop l">◀ '+t('stopS')+'</span><span class="stop r">'+t('stopL')+' ▶</span><div class="cartp" id="cart"><div id="z-cart"></div></div></div></div>'+
@@ -363,7 +364,7 @@ function abarHTML(kan){
   return mr.map(r=>{
     let b='';
     if(COMPS.includes(r)){
-      if(!kan)b=TYPES.map(ty=>'<button class="btn" data-act="act" data-r="'+r+'" data-a="produceType" data-arg="'+ty+'" id="b-'+r+'-'+ty+'">'+t('c_'+r)+' '+tn(ty)+'</button>').join('');
+      if(!kan)b=TYPES.map(ty=>'<button class="btn" data-act="act" data-r="'+r+'" data-a="produceType" data-arg="'+ty+'" id="b-'+r+'-'+ty+'"><span class="bc">'+t('c_'+r)+' </span>'+tn(ty)+'</button>').join('');
       else b='<button class="btn pk wide" data-act="act" data-r="'+r+'" data-a="produce" id="b-'+r+'-produce">'+t('b_take')+'</button>';
     } else if(r==='mizu'){
       b='<button class="btn" data-act="act" data-r="mizu" data-a="deliver" id="b-mizu-deliver">'+t('b_deliver')+'</button>';
@@ -419,6 +420,15 @@ function updateGame(){
   setHTML('z-asm',ah);
   setHTML('z-tick',(S.log||[]).slice(-4).reverse().map(e=>'<li><time>'+clock(e.t)+'</time>'+esc(evText(e))+'</li>').join(''));
   setHTML('rstrip',roleStripHTML());
+  /* su schermi stretti (una colonna) prima le postazioni del giocatore */
+  const fl=document.getElementById('floor'),mr=myRoles(),fk=mr.join(',');
+  if(fl&&fl.dataset.k!==fk){fl.dataset.k=fk;
+    const ord=[];const add=(...z)=>z.forEach(x=>{if(!ord.includes(x))ord.push(x);});
+    if(mr.includes('mizu'))add('mizu','super','line');
+    if(mr.includes('asm'))add('asm','line');
+    if(mr.some(r=>COMPS.includes(r)))add('dept','super');
+    add('dept','super','mizu','line','asm');
+    ord.forEach((z,i)=>{const el=fl.querySelector('.za-'+z);if(el)el.style.setProperty('--o',String(i+1));});}
   /* barra azioni */
   const ab=document.getElementById('abar');if(!ab)return;
   const key=myRoles().join(',')+'|'+S.mode;
@@ -435,7 +445,8 @@ function updateGame(){
       else if(!kan)hint=t('h_push');
       else hint=(cell.post||[]).length?t('h_nextCard',pnName(cell.post[0].pn)):t('h_noCard');
     } else if(r==='mizu'){
-      ['deliver','collect','goSuper','swap','loadAll','goLine'].forEach(a=>setDis('b-mizu-'+a,!canOK('mizu',a)||pend('mizu')));
+      ['deliver','collect','goSuper','swap','loadAll','goLine'].forEach(a=>{setDis('b-mizu-'+a,!canOK('mizu',a)||pend('mizu'));
+        const el=document.getElementById('b-mizu-'+a),away=(M.loc==='super')!==(a==='swap'||a==='loadAll'||a==='goLine');if(el&&el.classList.contains('away')!==away)el.classList.toggle('away',away);});
       const busy=M.act&&M.act.kind!=='wait';
       pr=busy?1-Math.max(0,M.act.rem)/(M.act.dur||1):0;
       if(busy)hint=t('h_m_busy',t('m_'+M.act.kind),nf(Math.max(0,M.act.rem),1));
@@ -562,7 +573,7 @@ function lobbyHTML(){
 function famTable(r){
   const sT=r.stockT||{},st=c=>TYPES.reduce((s,ty)=>s+(sT[c+'-'+ty]||0),0);
   return'<div class="tablewrap"><table><thead><tr><th>'+t('f_fam')+'</th><th>'+t('f_LP')+'</th><th>'+t('f_LW')+'</th><th>'+t('f_short')+'</th></tr></thead><tbody>'+
-   COMPS.map(c=>'<tr><td>'+t('c_'+c)+'</td><td>'+nf((r.LPf||{})[c],1)+' s</td><td>'+nf((r.LWf||{})[c],1)+' s</td><td class="'+(st(c)>0?'neg':'')+'">'+nf(st(c),0)+' s</td></tr>').join('')+'</tbody></table></div>';
+   COMPS.map(c=>'<tr><td>'+t('c_'+c)+'</td><td>'+secs((r.LPf||{})[c])+'</td><td>'+secs((r.LWf||{})[c])+'</td><td class="'+(st(c)>0?'neg':'')+'">'+nf(st(c),0)+' s</td></tr>').join('')+'</tbody></table></div>';
 }
 function nextBtn(label){return G.view?'':'<div class="row"><button class="btn primary" data-act="next">'+label+'</button><span class="small muted">'+t('anyoneNext')+'</span></div>';}
 function summaryHTML(n){
@@ -572,7 +583,7 @@ function summaryHTML(n){
   const rows=[[t('row_done'),r.delivered,'+10',r.delivered*10],[t('row_bl'),r.backlog,'−5',-r.backlog*5],[t('row_wip'),r.wip,'−1',-r.wip]];
   let h='<div class="stack"><div><p class="kicker">'+esc(R().name||R().id||'')+' · '+t('round')+' '+n+' · '+t('r'+n+'t')+'</p><h1>'+t('sumTitle',n)+'</h1></div>';
   h+='<div class="scorebox"><div class="score"><div class="small">'+t('pts')+'</div><div class="v'+(r.points<0?' neg':'')+'" id="countup" data-v="'+r.points+'">'+r.points+'</div></div><div class="panel"><div class="tablewrap"><table><thead><tr><th></th><th>n</th><th>×</th><th>'+t('pts')+'</th></tr></thead><tbody>'+
-    rows.map(x=>'<tr><td>'+x[0]+'</td><td>'+x[1]+'</td><td>'+x[2]+'</td><td class="'+(x[3]<0?'neg':(x[3]>0?'pos':''))+'">'+(x[3]>0?'+':'')+x[3]+'</td></tr>').join('')+'</tbody><tfoot><tr><td>'+t('total')+'</td><td></td><td></td><td>'+r.points+'</td></tr></tfoot></table></div></div></div>';
+    rows.map(x=>'<tr><td>'+x[0]+'</td><td>'+x[1]+'</td><td>'+x[2]+'</td><td class="'+(x[3]<0?'neg':(x[3]>0?'pos':''))+'">'+(x[3]>0?'+':'')+String(x[3]).replace('-','−')+'</td></tr>').join('')+'</tbody><tfoot><tr><td>'+t('total')+'</td><td></td><td></td><td>'+r.points+'</td></tr></tfoot></table></div></div></div>';
   const ud=Math.round(((u.legs||0)+(u.body||0)+(u.head||0))/3*100);
   h+='<p class="note">'+(r.mode==='push'?t('pushNote',ud,r.wip,r.delivered):t('kanNote',r.cards,r.wip))+'</p>';
   h+='<div class="tiles"><div class="tile"><span>'+t('m_lead')+'</span><b>'+nf(r.lead,0)+' '+t('sec')+'</b><small>'+t('m_leadS')+'</small></div><div class="tile"><span>'+t('m_serv')+'</span><b>'+Math.round((r.noWait||0)*100)+'%</b><small>'+t('m_servS')+'</small></div><div class="tile"><span>'+t('m_wip')+'</span><b>'+nf(r.wipAvg,0)+'</b><small>'+t('m_wipS')+'</small></div><div class="tile"><span>'+t('m_trips')+'</span><b>'+(r.trips||0)+'</b><small>'+(r.mode==='kanban'?t('m_tripsS',r.swaps||0):'&nbsp;')+'</small></div></div>';
@@ -785,7 +796,7 @@ function act(a,el){
     case'retry':G.ping=null;render();break;
     case'role':{if(G.view)break;const r=el.dataset.r,h=holder(r);
       if(h===G.cid)op({a:'unrole',role:r});else if(!h)op({a:'role',role:r});else toast(t('err_taken'));break;}
-    case'next':el.disabled=true;setTimeout(()=>{el.disabled=false;},1500);op({a:'next'});break;
+    case'next':el.disabled=true;setTimeout(()=>{el.disabled=false;},1500);op({a:'next',from:R().phase});break;
     case'act':{const r=el.dataset.r;if(!mine(r))break;G.pend[r]=performance.now();el.disabled=true;
       const body={a:'act',role:r,action:el.dataset.a};if(el.dataset.arg)body.arg=el.dataset.arg;
       op(body).then(()=>{});break;}
@@ -824,9 +835,12 @@ document.addEventListener('change',e=>{
 /* rete di sicurezza: anche senza tick nuovi nessun pezzo resta nascosto */
 setInterval(()=>{if(G.screen==='game'&&pendingM.size){const n=hidden.size;sweepHidden();if(hidden.size!==n)updateGame();}},1000);
 window.addEventListener('pageshow',e=>{if(e.persisted&&G.room)connect();});
+/* telefono sbloccato / scheda tornata in primo piano: se la connessione è morta, riapri subito */
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&G.room&&(!G.es||G.es.readyState===2))connect();});
 
 /* ---------- Avvio ---------- */
 if(G.pin!=null){render();}
 else if(G.view&&Q.get('room')){G.room=roomIdOf(Q.get('room'));render();connect();}
+else if(G.me&&Q.get('room')&&ssGet('kg_joined')===roomIdOf(Q.get('room'))){join(Q.get('room'),G.me);} /* ricarica della pagina: rientra da solo */
 else{render();}
 })();
