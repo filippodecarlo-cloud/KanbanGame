@@ -19,10 +19,15 @@ const NEXT = { lobby: 'g1', s1: 'inter', inter: 'g2', s2: 'retro', retro: 'g3', 
 const ROOM_RE = /^[A-Z0-9_-]{1,24}$/;
 const ROOM_TTL = 24 * 3600 * 1000;
 const LEAVE_GRACE = +process.env.KG_LEAVE_MS || 8000;            // attesa prima di liberare i ruoli di chi esce
+/* Apertura del gioco: parte CHIUSO (sul piano free di Render ogni risveglio è un riavvio, quindi un «chiuso» in memoria
+   tornerebbe aperto). Il docente lo apre dalla regia; si richiude da solo dopo KG_OPEN_HOURS ore (predefinito 3). */
+const OPEN_MS = Math.round((+process.env.KG_OPEN_HOURS > 0 ? +process.env.KG_OPEN_HOURS : 3) * 3600 * 1000);
+const EXTEND_MS = 3600 * 1000;                                       // «+1 ora» dalla regia
 
 const newSeed = () => 1 + Math.floor(Math.random() * 1e9);
-const session = { dur: 180, seed: newSeed(), lang: 'it' };
-const sess = () => ({ dur: session.dur, lang: session.lang });
+const session = { dur: 180, seed: newSeed(), lang: 'it', open: process.env.KG_OPEN === '1', openUntil: 0 };
+if (session.open) session.openUntil = Date.now() + OPEN_MS;
+const sess = () => ({ dur: session.dur, lang: session.lang, open: session.open, openUntil: session.open ? session.openUntil : null });
 const rooms = new Map();
 const viewers = new Set(); // tutte le risposte SSE aperte (per reset)
 
@@ -65,6 +70,30 @@ function freeRoles(r, c) {
   if (ch) syncHuman(r);
   return ch;
 }
+
+/* ---------- apertura e chiusura del gioco ---------- */
+/* chiude il gioco: avvisa tutti i client (membri e spettatori), chiude le connessioni, elimina le stanze (nessuna simulazione resta attiva) */
+function closeGame() {
+  session.open = false; session.openUntil = 0;
+  session.seed = newSeed();
+  for (const r of rooms.values()) {
+    broadcast(r, { type: 'closed' });
+    r.sim = null;
+    for (const m of r.members.values()) {
+      if (m.timer) { clearTimeout(m.timer); m.timer = null; }
+      for (const x of m.conns) { viewers.delete(x); try { x.end(); } catch (e) { /* ignorato */ } }
+      m.conns.clear();
+    }
+    r.members.clear();
+  }
+  rooms.clear();
+}
+/* true se aperto; se la scadenza è passata chiude subito (controllo pigro, oltre al timer) */
+function isOpen() {
+  if (session.open && Date.now() >= session.openUntil) { console.log('gioco chiuso automaticamente (scadenza)'); closeGame(); }
+  return session.open;
+}
+setInterval(isOpen, 1000).unref();
 
 /* ---------- partita ---------- */
 function startRound(r, n) {
@@ -300,14 +329,16 @@ async function handle(req, res) {
   const q = u.searchParams, pn = u.pathname;
   if (req.method === 'OPTIONS') { res.writeHead(204, CORS); return res.end(); }
   if (pn.startsWith('/api/')) {
-    if (pn === '/api/ping') return json(res, 200, { ok: true, app: 'kanban-game', lang: session.lang });
-    if (pn === '/api/events' && req.method === 'GET') return sse(req, res, q);
+    const open = isOpen();
+    if (pn === '/api/ping') return json(res, 200, { ok: true, app: 'kanban-game', lang: session.lang, open, openUntil: open ? session.openUntil : null });
+    if (pn === '/api/events' && req.method === 'GET') return open ? sse(req, res, q) : json(res, 403, { ok: false, error: 'closed' });
     if (pn === '/api/rooms' && req.method === 'GET') return json(res, 200, roomsInfo());
     if (pn === '/api/pin') return json(res, 200, { ok: q.get('pin') === PIN });
     if (req.method !== 'POST') return json(res, 405, { ok: false, error: 'method' });
     const b = await readBody(req);
     if (pn === '/api/op') {
       if (!b || typeof b !== 'object') return json(res, 400, { ok: false, error: 'body' });
+      if (!open) return json(res, 403, { ok: false, error: 'closed' });
       const r = getRoom(q.get('room'), false);
       if (!r) return json(res, 404, { ok: false, error: 'noRoom' });
       if (b.c != null) b.c = String(b.c);
@@ -319,12 +350,18 @@ async function handle(req, res) {
       if (q.get('pin') !== PIN) return json(res, 403, { ok: false, error: 'pin' });
       if (pn === '/api/session') {
         const hasD = b && b.dur != null, hasL = b && b.lang != null, d = +(b && b.dur);
-        if (!hasD && !hasL) return json(res, 400, { ok: false, error: 'dur' });
+        const hasO = b && b.open != null, hasX = !!(b && b.extend);
+        if (!hasD && !hasL && !hasO && !hasX) return json(res, 400, { ok: false, error: 'dur' });
         if (hasD && !DURS.includes(d)) return json(res, 400, { ok: false, error: 'dur' });
         if (hasL && b.lang !== 'it' && b.lang !== 'en') return json(res, 400, { ok: false, error: 'lang' });
+        if (hasO && typeof b.open !== 'boolean') return json(res, 400, { ok: false, error: 'open' });
+        if (hasX && !(hasO ? b.open : open)) return json(res, 409, { ok: false, error: 'closed' }); /* +1 ora solo a gioco aperto */
         if (hasD) session.dur = d;
         if (hasL) session.lang = b.lang;
-        for (const r of rooms.values()) broadcast(r, { type: 'session', session: sess() });
+        if (hasO && b.open) { session.open = true; session.openUntil = Date.now() + OPEN_MS; }
+        if (hasX) session.openUntil += EXTEND_MS;
+        if (hasO && !b.open) closeGame();
+        else for (const r of rooms.values()) broadcast(r, { type: 'session', session: sess() });
         return json(res, 200, { ok: true, session: sess() });
       }
       session.seed = newSeed();
@@ -342,4 +379,4 @@ async function handle(req, res) {
 }
 process.on('uncaughtException', e => console.error('errore non gestito:', e && e.stack || e));
 process.on('unhandledRejection', e => console.error('promessa rifiutata:', e && e.stack || e));
-server.listen(PORT, () => console.log('kanban-game in ascolto sulla porta ' + PORT + (SPEED > 1 ? ' (KG_SPEED=' + SPEED + ')' : '') + (TEST_DUR ? ' (KG_TEST_DUR=' + TEST_DUR + ')' : '')));
+server.listen(PORT, () => console.log('kanban-game in ascolto sulla porta ' + PORT + (session.open ? ' (gioco aperto, KG_OPEN=1)' : ' (gioco chiuso: lo apre il docente dalla regia)') + (SPEED > 1 ? ' (KG_SPEED=' + SPEED + ')' : '') + (TEST_DUR ? ' (KG_TEST_DUR=' + TEST_DUR + ')' : '')));

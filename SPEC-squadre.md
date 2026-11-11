@@ -133,3 +133,18 @@ Nessuna modifica al protocollo; solo aggiunte e precisazioni (W2 può ignorare c
 - **`/api/session`** risponde `{ok:true, session:{dur}}`; pin errato → HTTP 403 `{ok:false,error:'pin'}` (anche `/api/reset`).
 - **`/api/rooms`**: `cards` = cartellini della cfg corrente (4 × Σ(nP+nW)); `live.stock` = pezzi in supermarket + bordo linea + carrello.
 - Env per i test: `KG_SPEED` (intero, passi da 0,1 s per tick da 100 ms), `KG_TEST_DUR` (s), `KG_LEAVE_MS`.
+
+## Apertura e chiusura del gioco
+Il gioco **parte chiuso**: sul piano free di Render ogni risveglio è un riavvio, quindi uno stato «chiuso» in memoria tornerebbe aperto.
+Il docente lo apre dalla regia all'inizio della lezione; si richiude da solo dopo 3 ore o al riavvio del server.
+- Sessione: `session.open` (bool) e `session.openUntil` (ms epoch, `null` se chiuso). Env `KG_OPEN=1` = parte aperto; `KG_OPEN_HOURS` (anche frazionario,
+  es. `0.001` nei test) = durata massima dell'apertura (predefinita 3). Scaduto `openUntil`, il server chiude da solo (timer da 1 s + controllo a ogni richiesta).
+- `POST /api/session?pin=PIN` accetta anche `{open:true|false}` e `{extend:1}` (+1 ora, solo se aperto, altrimenti 409 `closed`); `open` non booleano → 400 `open`.
+  Aprire imposta `openUntil = adesso + 3 h`. Chiudere: `{type:'closed'}` a tutte le connessioni SSE (membri e spettatori), connessioni chiuse,
+  stanze eliminate (nessuna simulazione resta attiva), nuovo seed.
+- `session` (in `init`, `session`, `/api/rooms`, risposta di `/api/session`) e `GET /api/ping` includono `open` e `openUntil`.
+- A gioco chiuso: `GET /api/events` → HTTP 403 `{ok:false,error:'closed'}` (niente SSE); `POST /api/op` → 403 `{ok:false,error:'closed'}`.
+  `/api/pin`, `/api/rooms`, `/api/session`, `/api/reset` funzionano sempre.
+- Client: se il ping dice `open:false`, se arriva `closed`, se `op` risponde `closed` o se l'SSE fallisce con errore HTTP e il ping conferma la chiusura,
+  mostra la schermata «Il gioco è chiuso» con «Riprova» e il link alla versione a giocatore singolo; `EventSource` chiuso e **nessun** polling o
+  riconnessione automatica (terrebbero sveglio il server). La regia, a gioco chiuso, smette di interrogare `/api/rooms` (un controllo quando la scheda torna visibile).

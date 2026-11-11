@@ -101,13 +101,19 @@ function policy(role, S) {
   return null;
 }
 
-async function main() {
+/* avvia il server su una porta libera (KG_OPEN e KG_OPEN_HOURS tolti dall'ambiente se non indicati) */
+async function startServer(extra) {
+  if (srv) { srv.kill(); srv = null; }
   PORT = await freePort();
-  srv = spawn(process.execPath, [path.join(__dirname, 'server.js')], {
-    env: Object.assign({}, process.env, { PORT: String(PORT), DOCENTE_PIN: PIN, KG_SPEED: '10', KG_TEST_DUR: '60', KG_LEAVE_MS: '1200' }),
-    stdio: ['ignore', 'pipe', 'inherit'],
-  });
+  const env = Object.assign({}, process.env, { PORT: String(PORT), DOCENTE_PIN: PIN, KG_SPEED: '10', KG_TEST_DUR: '60', KG_LEAVE_MS: '1200' });
+  delete env.KG_OPEN; delete env.KG_OPEN_HOURS;
+  srv = spawn(process.execPath, [path.join(__dirname, 'server.js')], { env: Object.assign(env, extra || {}), stdio: ['ignore', 'pipe', 'inherit'] });
+  srv.stdout.resume(); /* consuma l'output (log) */
   await new Promise((res, rej) => { srv.stdout.once('data', () => res()); srv.once('exit', c => rej(new Error('server uscito ' + c))); });
+}
+
+async function main() {
+  await startServer();
 
   log('# ping');
   let r = await get('/api/ping');
@@ -116,6 +122,27 @@ async function main() {
   r = await get('/api/pin?pin=' + PIN); ok(r.json.ok === true, 'pin giusto');
   r = await get('/api/pin?pin=xx'); ok(r.json.ok === false, 'pin sbagliato');
 
+  log('# gioco chiuso all\'avvio (KG_OPEN non impostato)');
+  r = await get('/api/ping');
+  ok(r.json.open === false && r.json.openUntil === null, 'ping: open false, openUntil null');
+  r = await get('/api/events?room=T0&c=x&name=y');
+  ok(r.status === 403 && r.json && r.json.ok === false && r.json.error === 'closed' && !/event-stream/.test(r.headers['content-type']), 'events da chiuso: 403 closed (JSON, niente SSE)');
+  r = await get('/api/events?room=T0&c=x&name=y&view=1');
+  ok(r.status === 403 && r.json && r.json.error === 'closed', 'events spettatore da chiuso: 403 closed');
+  r = await post('/api/op?room=T0', { c: 'x', a: 'next' }); ok(r.json && r.json.ok === false && r.json.error === 'closed', 'op da chiuso: closed');
+  r = await get('/api/rooms'); ok(r.status === 200 && r.json.rooms.length === 0 && r.json.session.open === false && r.json.session.openUntil === null, '/api/rooms funziona da chiuso (session.open false)');
+  r = await post('/api/session?pin=sbagliato', { open: true }); ok(r.status === 403 && r.json.error === 'pin', 'apertura con pin sbagliato rifiutata');
+  r = await get('/api/ping'); ok(r.json.open === false, 'resta chiuso');
+  r = await post('/api/session?pin=' + PIN, { extend: 1 }); ok(r.status === 409 && r.json.error === 'closed', '+1 ora rifiutato a gioco chiuso');
+  r = await post('/api/session?pin=' + PIN, { open: 'si' }); ok(r.status === 400 && r.json.error === 'open', 'open non booleano rifiutato');
+  let t0 = Date.now();
+  r = await post('/api/session?pin=' + PIN, { open: true });
+  ok(r.json.ok === true && r.json.session.open === true && Math.abs(r.json.session.openUntil - (t0 + 3 * 3600e3)) < 5000, 'apertura con pin giusto: openUntil = ora + 3 h');
+  const until0 = r.json.session.openUntil;
+  r = await get('/api/ping'); ok(r.json.open === true && r.json.openUntil === until0, 'ping: aperto con openUntil');
+  r = await post('/api/session?pin=' + PIN, { extend: 1 }); ok(r.json.ok && r.json.session.openUntil === until0 + 3600e3, '+1 ora allunga openUntil di un\'ora');
+  r = await get('/api/rooms'); ok(r.json.session.open === true && r.json.session.openUntil === until0 + 3600e3, '/api/rooms: session con open/openUntil');
+
   log('# ingresso nella stanza');
   const ROOM = 'TEST1';
   const A = sse('test1', 'cidA', 'Anna');
@@ -123,6 +150,7 @@ async function main() {
   ok(A.ctype && A.ctype.startsWith('text/event-stream'), 'content-type SSE');
   ok(A.retry === 2000, 'retry 2000');
   ok(init.room.id === ROOM && init.room.phase === 'lobby' && init.session.dur === 180, 'init stato pubblico (id maiuscolo, lobby, dur)');
+  ok(init.session.open === true && typeof init.session.openUntil === 'number', 'init.session con open/openUntil');
   ok(JSON.stringify(init.room.cfg) === JSON.stringify({ nP: { legs: 2, body: 2, head: 2 }, nW: { legs: 2, body: 2, head: 2 }, imp: [] }), 'cfg di default');
   const B = sse(ROOM, 'cidB', 'Bruno');
   await B.wait(m => m.type === 'init', 3000, 'init B');
@@ -201,23 +229,27 @@ async function main() {
 
   const r1 = await playRound(1, 'push');
   r = await op('cidA', { a: 'cfg', nP: { legs: 3, body: 3, head: 3 } }); ok(!r.json.ok, 'cfg in s1 rifiutato');
+  let stP = A.waitNew(m => m.type === 'state' && m.room.phase === 'inter', 3000, 'state inter'); /* in ascolto prima del POST: lo state può arrivare prima della risposta */
   r = await op('cidB', { a: 'next' }); ok(r.json.ok, 'next s1 -> inter');
-  st = await A.waitNew(m => m.type === 'state', 3000); ok(st.room.phase === 'inter', 'fase inter');
+  st = await stP; ok(st.room.phase === 'inter', 'fase inter');
+  stP = B.waitNew(m => m.type === 'state' && m.room.phase === 'inter' && m.room.cfg.nW.legs === 1, 3000, 'cfg propagata');
   r = await op('cidA', { a: 'cfg', nP: { legs: 3, body: 3, head: 2 }, nW: { legs: 1, body: 2, head: 2 } }); ok(r.json.ok, 'cfg nP/nW in inter');
-  st = await B.waitNew(m => m.type === 'state', 3000); ok(st.room.cfg.nP.legs === 3 && st.room.cfg.nW.legs === 1, 'cfg propagata a tutti');
+  st = await stP; ok(st.room.cfg.nP.legs === 3 && st.room.cfg.nW.legs === 1, 'cfg propagata a tutti');
   r = await op('cidA', { a: 'cfg', imp: ['smed'] }); ok(!r.json.ok, 'imp in inter rifiutato');
   r = await op('cidA', { a: 'cfg', nP: { legs: 6, body: 3, head: 3 } }); ok(!r.json.ok, 'nP fuori 1..5 rifiutato');
   const r2 = await playRound(2, 'kanban');
   ok(r2.nP.legs === 3 && r2.nW.legs === 1 && r2.imp.length === 0, 'round 2 usa la cfg scelta, senza miglioramenti');
+  stP = A.waitNew(m => m.type === 'state' && m.room.phase === 'retro', 3000, 'state retro');
   r = await op('cidA', { a: 'next' }); ok(r.json.ok, 'next s2 -> retro');
-  st = await A.waitNew(m => m.type === 'state', 3000); ok(st.room.phase === 'retro', 'fase retro');
+  st = await stP; ok(st.room.phase === 'retro', 'fase retro');
   r = await op('cidA', { a: 'cfg', imp: ['heijunka', 'smed', 'std'] }); ok(!r.json.ok, 'piu di 2 miglioramenti rifiutato');
   r = await op('cidA', { a: 'cfg', imp: ['magic'] }); ok(!r.json.ok, 'miglioramento sconosciuto rifiutato');
   r = await op('cidA', { a: 'cfg', imp: ['heijunka', 'smed'], nP: { legs: 2, body: 2, head: 2 } }); ok(r.json.ok, 'imp + nP in retro');
   const r3 = await playRound(3, 'kanban');
   ok(r3.imp.join() === 'heijunka,smed', 'round 3 con miglioramenti');
+  stP = A.waitNew(m => m.type === 'state' && m.room.phase === 'debrief', 3000, 'state debrief');
   r = await op('cidA', { a: 'next' }); ok(r.json.ok, 'next s3 -> debrief');
-  st = await A.waitNew(m => m.type === 'state', 3000); ok(st.room.phase === 'debrief' && st.room.results.every(x => x), 'fase debrief con 3 risultati');
+  st = await stP; ok(st.room.phase === 'debrief' && st.room.results.every(x => x), 'fase debrief con 3 risultati');
   r = await op('cidA', { a: 'next' }); ok(!r.json.ok, 'next in debrief ignorato');
   log(`  punti: R1 ${r1.points}  R2 ${r2.points}  R3 ${r3.points}`);
 
@@ -282,6 +314,53 @@ async function main() {
   await C.wait(m => m.type === 'reset', 3000, 'reset C');
   r = await get('/api/rooms'); ok(r.json.rooms.length === 0, 'stanze azzerate');
   [A, C, V].forEach(x => x.close());
+  r = await get('/api/ping'); ok(r.json.open === true, 'il reset non chiude il gioco');
+
+  log('# chiusura dalla regia');
+  const M = sse('CHIUSA', 'cidM', 'Marta'), W = sse('CHIUSA', 'cidW', 'Docente', true), M2 = sse('ALTRA', 'cidN', 'Nico');
+  await M.wait(m => m.type === 'init', 3000, 'init M'); await W.wait(m => m.type === 'init', 3000, 'init W'); await M2.wait(m => m.type === 'init', 3000, 'init M2');
+  r = await post('/api/op?room=CHIUSA', { c: 'cidM', a: 'role', role: 'mizu' }); ok(r.json.ok, 'M prende mizu');
+  r = await post('/api/op?room=CHIUSA', { c: 'cidM', a: 'next' }); ok(r.json.ok, 'round 1 avviato');
+  await M.waitNew(m => m.type === 'tick', 3000, 'tick prima della chiusura');
+  r = await post('/api/session?pin=sbagliato', { open: false }); ok(r.status === 403, 'chiusura con pin sbagliato rifiutata');
+  r = await get('/api/rooms'); ok(r.json.rooms.length === 2 && r.json.rooms.some(x => x.live), 'stanze e partita ancora attive');
+  r = await post('/api/session?pin=' + PIN, { open: false });
+  ok(r.json.ok && r.json.session.open === false && r.json.session.openUntil === null, 'chiusura con pin giusto');
+  await M.wait(m => m.type === 'closed', 3000, 'closed M'); ok(true, 'membro riceve closed');
+  await W.wait(m => m.type === 'closed', 3000, 'closed W'); ok(true, 'spettatore riceve closed');
+  await M2.wait(m => m.type === 'closed', 3000, 'closed M2'); ok(true, 'membro di un\'altra stanza riceve closed');
+  await sleep(300);
+  ok(M.closed && W.closed && M2.closed, 'connessioni SSE chiuse dal server');
+  const nAfter = M.msgs.length;
+  r = await get('/api/rooms'); ok(r.json.rooms.length === 0 && r.json.session.open === false, '/api/rooms vuoto dopo la chiusura');
+  r = await get('/api/events?room=CHIUSA&c=cidM&name=Marta'); ok(r.status === 403 && r.json.error === 'closed', 'events di nuovo 403');
+  r = await post('/api/op?room=CHIUSA', { c: 'cidM', a: 'next' }); ok(r.json.error === 'closed', 'op di nuovo closed');
+  await sleep(500);
+  r = await get('/api/rooms'); ok(r.json.rooms.length === 0 && M.msgs.length === nAfter, 'nessuna simulazione resta attiva (niente stanze, niente tick)');
+  r = await post('/api/session?pin=' + PIN, { dur: 180 }); ok(r.json.ok && r.json.session.open === false, 'durata modificabile anche da chiuso');
+  r = await post('/api/reset?pin=' + PIN, {}); ok(r.json.ok, 'reset funziona anche da chiuso');
+  r = await post('/api/session?pin=' + PIN, { open: true }); ok(r.json.ok && r.json.session.open, 'riapertura');
+  const M3 = sse('CHIUSA', 'cidM', 'Marta');
+  init = await M3.wait(m => m.type === 'init', 3000, 'init M3');
+  ok(init.room.phase === 'lobby' && init.room.roles.mizu === null, 'dopo la riapertura la stanza riparte da zero');
+  M3.close();
+
+  log('# chiusura automatica (KG_OPEN=1, KG_OPEN_HOURS=0.001 = 3,6 s)');
+  await startServer({ KG_OPEN: '1', KG_OPEN_HOURS: '0.001' });
+  r = await get('/api/ping'); ok(r.json.open === true && r.json.openUntil - Date.now() > 0 && r.json.openUntil - Date.now() <= 3600, 'KG_OPEN=1: parte aperto (' + (r.json.openUntil - Date.now()) + ' ms alla chiusura)');
+  const Z = sse('AUTO', 'cidZ', 'Zeno');
+  await Z.wait(m => m.type === 'init', 3000, 'init Z');
+  await post('/api/op?room=AUTO', { c: 'cidZ', a: 'next' });
+  await Z.wait(m => m.type === 'closed', 8000, 'closed automatico'); ok(true, 'chiusura automatica: closed inviato');
+  await sleep(300);
+  ok(Z.closed, 'chiusura automatica: connessione chiusa');
+  r = await get('/api/rooms'); ok(r.json.rooms.length === 0 && r.json.session.open === false, 'chiusura automatica: stanze eliminate, chiuso');
+  r = await get('/api/events?room=AUTO&c=cidZ&name=Zeno'); ok(r.status === 403, 'chiusura automatica: events 403');
+  t0 = Date.now();
+  r = await post('/api/session?pin=' + PIN, { open: true });
+  ok(r.json.session.open && Math.abs(r.json.session.openUntil - (t0 + 3600)) < 500, 'KG_OPEN_HOURS frazionario: openUntil = ora + 3,6 s');
+  await sleep(4200);
+  r = await get('/api/ping'); ok(r.json.open === false, 'si richiude da solo anche senza client');
 }
 
 main().catch(e => { failures++; console.error('ERRORE', e && e.stack || e); }).finally(() => {

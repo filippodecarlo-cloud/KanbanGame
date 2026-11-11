@@ -373,3 +373,24 @@ details.teach .btn{width:auto;margin-top:0;min-height:44px}
   .abar .btn.away{display:none}
   .abar .btn .bc{display:none}
 }
+
+/* gioco chiuso (studenti) */
+.closedscr{min-height:calc(100vh - 140px);min-height:calc(100dvh - 140px);display:grid;align-content:center}
+.closedbox{display:grid;gap:12px;justify-items:center;text-align:center;border-top:6px solid var(--accent);padding:26px 18px}
+.closedbox h2{font-size:1.6rem}
+.closedbox .lead{margin-top:0}
+.closedbox .btn{width:100%;margin-top:0}
+.closedbox .btn.primary{min-height:54px;font-size:1.1rem}
+.closedbox .small{margin-top:6px}
+/* regia: apertura del gioco */
+.tvopen{display:grid;gap:10px;border-left:8px solid var(--bad)}
+.tvopen.on{border-left-color:var(--good)}
+.tvopen-row{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between}
+.tvopen-st{display:grid;gap:6px}
+.tvopen-b{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.pill{display:inline-flex;align-items:center;gap:8px;font-weight:700;font-size:1.15rem;padding:6px 16px;border-radius:999px;color:#fff;background:var(--bad)}
+.pill i{width:12px;height:12px;border-radius:50%;background:#fff;opacity:.9}
+.pill.on{background:var(--good)}
+.btn.big{min-height:56px;font-size:1.2rem;padding:12px 28px}
+a.btn{text-decoration:none}
+.tvopen-b .btn{min-height:56px}

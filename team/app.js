@@ -142,7 +142,15 @@ const TXT_IT={
  tvBoard:'Classifica dal vivo',tvTeams:n=>n===1?'1 squadra':n+' squadre',tvNone:'Nessuna squadra collegata. Proiettate il link qui sopra e fate entrare gli studenti.',
  th_rank:'#',th_team:'Squadra',th_phase:'Fase',th_cards:'Cartellini',th_imp:'Miglioramenti',th_live:'In partita',th_view:'',tvWatch:'Guarda',
  tvPinBad:'PIN docente non valido.',tvPinHelp:'Controlla il PIN (variabile DOCENTE_PIN del server) e riprova.',tvNoSrv:'Server non raggiungibile: nuovo tentativo tra poco…',tvUpd:s=>'aggiornato alle '+s,tvDurSet:s=>'Durata dei prossimi round: '+clock(s)+' minuti.',
- tvLiveTxt:(r,d,w,s)=>r+' rimasti · '+d+' spediti · '+w+' in attesa · '+s+' scorte'
+ tvLiveTxt:(r,d,w,s)=>r+' rimasti · '+d+' spediti · '+w+' in attesa · '+s+' scorte',
+ /* gioco aperto/chiuso */
+ closedT:'Il gioco è chiuso.',closedP:'È disponibile solo durante la lezione, quando il docente lo apre.',closedSolo:'Nel frattempo puoi allenarti con la versione a giocatore singolo.',
+ tvGame:'Accesso degli studenti',tvOpenOn:'Gioco aperto',tvOpenOff:'Gioco chiuso',tvClosesAt:h=>'chiude alle '+h,
+ tvOpenBtn:'Apri il gioco',tvCloseBtn:'Chiudi il gioco',tvExtend:'+1 ora',
+ tvCloseQ:'Chiudendo il gioco le squadre e i risultati in corso verranno cancellati e gli studenti non potranno più giocare. Confermi?',tvCloseYes:'Sì, chiudi il gioco',
+ tvOpenNote:'Il gioco si chiude da solo dopo 3 ore e quando il server si riavvia: aprilo all\'inizio di ogni lezione.',
+ tvOpened:'Gioco aperto: gli studenti possono entrare.',tvClosedDone:'Gioco chiuso.',tvExtended:'Chiusura spostata di un\'ora.',
+ tvNoneClosed:'Il gioco è chiuso: aprilo qui sopra per far entrare le squadre.'
 };
 const TXT_IT_X={
  tvResetNote:"Cancella tutte le squadre e genera una nuova sequenza di ordini.",
@@ -474,7 +482,24 @@ const TXT_EN={
  ph_retro:"Retrospective",
  ph_g3:"Round 3 in progress",
  ph_s3:"Result 3",
- ph_debrief:"Debrief"
+ ph_debrief:"Debrief",
+ closedT:"The game is closed.",
+ closedP:"It is available only during class, when the teacher opens it.",
+ closedSolo:"Meanwhile you can practise with the single-player version.",
+ tvGame:"Student access",
+ tvOpenOn:"Game open",
+ tvOpenOff:"Game closed",
+ tvClosesAt:h=>'closes at '+h,
+ tvOpenBtn:"Open the game",
+ tvCloseBtn:"Close the game",
+ tvExtend:"+1 hour",
+ tvCloseQ:"Closing the game will delete the teams and the results in progress, and students will no longer be able to play. Confirm?",
+ tvCloseYes:"Yes, close the game",
+ tvOpenNote:"The game also closes automatically after 3 hours and when the server restarts: open it at the start of each class.",
+ tvOpened:"Game open: students can join.",
+ tvClosedDone:"Game closed.",
+ tvExtended:"Closing time moved one hour later.",
+ tvNoneClosed:"The game is closed: open it above to let the teams join."
 };
 const TXTS={it:Object.assign(TXT_IT,TXT_IT_X),en:TXT_EN};
 let LANG='it';
@@ -503,7 +528,8 @@ const G={
   me:lsGet('kg_name')||'',team:Q.get('room')||lsGet('kg_team')||'',
   view:Q.get('view')==='1',pin:Q.get('docente'),
   room:null,es:null,online:false,everOnline:false,R:null,peers:[],sess:{dur:180},S:null,
-  anim:lsGet('kg_anim')!=='0',screen:'entry',notes:'',pend:{},entryMsg:'',ping:null,abarKey:'',retryT:null
+  anim:lsGet('kg_anim')!=='0',screen:'entry',notes:'',pend:{},entryMsg:'',ping:null,abarKey:'',retryT:null,
+  closed:false,closedView:null
 };
 ssSet('kg_cid',G.cid);
 /* lingua: scelta personale (sessione) > ?lang= > predefinita del docente > italiano */
@@ -526,7 +552,7 @@ function api(p,body){
 }
 function op(o){
   if(!G.room||G.view)return Promise.resolve({ok:false});
-  return api('/api/op?room='+enc(G.room),Object.assign({c:G.cid},o)).then(r=>{if(r&&!r.ok&&o.a!=='act'&&!(o.a==='next'&&r.error==='phase'))toast(errText(r.error));return r;}).catch(()=>{toast(t('err_net'));return{ok:false};});
+  return api('/api/op?room='+enc(G.room),Object.assign({c:G.cid},o)).then(r=>{if(r&&r.error==='closed'){goClosed();return r;}if(r&&!r.ok&&o.a!=='act'&&!(o.a==='next'&&r.error==='phase'))toast(errText(r.error));return r;}).catch(()=>{toast(t('err_net'));return{ok:false};});
 }
 function errText(e){if(!e)return t('err_generic');if(/taken|occup|preso/i.test(e))return t('err_taken');return t('err_generic')+' ('+e+')';}
 let toastT=null;
@@ -563,7 +589,10 @@ function connect(){
   G.es=es;
   es.onopen=()=>{if(G.es===es)setOnline(true);};
   es.onerror=()=>{if(G.es!==es)return;setOnline(false);
-    if(es.readyState===2)G.retryT=setTimeout(()=>{if(G.es===es&&G.room)connect();},3000);}; /* chiusa per errore HTTP: riprova a mano */
+    if(es.readyState!==2)return; /* il browser riprova da solo (rete persa) */
+    /* chiusa per errore HTTP (403 = gioco chiuso?): chiedi al server; se è chiuso fermati, altrimenti riprova a mano */
+    const again=()=>{if(G.es===es&&G.room)G.retryT=setTimeout(()=>{if(G.es===es&&G.room)connect();},3000);};
+    api('/api/ping').then(r=>{if(G.es!==es)return;if(r&&r.ok&&r.open===false)goClosed();else again();}).catch(again);};
   es.onmessage=e=>{if(G.es!==es)return;let m;try{m=JSON.parse(e.data);}catch(x){return;}onMsg(m);};
 }
 function onMsg(m){
@@ -588,7 +617,15 @@ function onMsg(m){
       if(G.anim&&Array.isArray(m.ev))m.ev.forEach(e=>{try{handleEv(e);}catch(x){}});
       updateGame();break;}
     case'reset':onReset();break;
+    case'closed':goClosed();break;
   }
+}
+/* gioco chiuso dal docente (o mai aperto): niente EventSource, niente timer, niente polling. Si riprova solo con «Riprova». */
+function goClosed(){
+  if(G.es){try{G.es.close();}catch(e){}}G.es=null;clearTimeout(G.retryT);G.retryT=null;
+  if(G.view&&G.room)G.closedView=G.room;
+  G.closed=true;G.room=null;G.R=null;G.S=null;G.view=false;G.ping=null;G.entryMsg='';clearFx();ssSet('kg_joined','');
+  setOnline(true);render();
 }
 function onReset(){
   if(G.es){try{G.es.close();}catch(e){}}G.es=null;clearTimeout(G.retryT);
@@ -893,6 +930,14 @@ function entryHTML(){
     '<p class="credit">'+t('credit')+' · <a href="'+esc(soloHref())+'">'+t('soloLink')+'</a></p></div>';
   return h;
 }
+function closedHTML(){
+  return'<div class="closedscr"><div class="stack entry"><div><p class="kicker">'+t('kicker')+'</p><h1>'+t('title')+'</h1></div>'+
+    '<div class="panel closedbox" role="status"><div class="lock" aria-hidden="true"><svg viewBox="0 0 48 48" width="56" height="56"><rect x="9" y="21" width="30" height="22" rx="4" fill="var(--accent)" stroke="var(--ink)" stroke-width="2.5"/><path d="M16 21v-6a8 8 0 0 1 16 0v6" fill="none" stroke="var(--ink)" stroke-width="3.5"/><circle cx="24" cy="31" r="3" fill="#fff"/><rect x="22.6" y="32" width="2.8" height="6" rx="1.2" fill="#fff"/></svg></div>'+
+    '<h2>'+t('closedT')+'</h2><p class="lead">'+t('closedP')+'</p>'+
+    '<button class="btn primary" data-act="reopen" id="b-reopen">'+t('retry')+'</button>'+
+    '<p class="small muted">'+t('closedSolo')+'</p><a class="btn" href="'+esc(soloHref())+'">'+t('soloLink')+'</a></div>'+
+    '<p class="credit">'+t('credit')+'</p></div></div>';
+}
 function roleCardsHTML(){
   return ROLES.map(r=>{
     const h=holder(r),me=mine(r),cls=me?' mine':(h?' other':''),dis=G.view||(h&&!me);
@@ -1021,6 +1066,7 @@ function navHTML(){
 }
 function screenOf(){
   if(G.pin!=null)return'teacher';
+  if(G.closed)return'closed';
   if(!G.room)return'entry';
   if(!G.R)return'connecting';
   const ph=G.R.phase||'lobby';
@@ -1042,6 +1088,7 @@ function render(){
   switch(G.screen){
     case'teacher':renderTeacher();break;
     case'entry':app.innerHTML=entryHTML();if(G.ping==null)doPing();break;
+    case'closed':app.innerHTML=closedHTML();break;
     case'connecting':app.innerHTML='<div class="waitbox"><div class="spin"></div><p>'+t('checking')+'</p></div>';break;
     case'lobby':app.innerHTML=lobbyHTML();break;
     case'game':
@@ -1073,14 +1120,18 @@ function countUp(){
 }
 function doPing(){
   G.ping=null;
-  const done=ok=>{G.ping=ok;if(G.screen==='entry'){const btn=document.getElementById('b-join');
-    if(ok&&btn){btn.textContent=t('enter');}else render();}};
+  const done=(ok,r,ch)=>{
+    if(ok&&r&&r.open===false){goClosed();return;} /* gioco chiuso dal docente */
+    G.closed=false;G.ping=ok;
+    if(ok&&G.closedView){const v=G.closedView;G.closedView=null;G.view=true;G.room=v;render();connect();return;} /* spettatore: torna a guardare */
+    const btn=G.screen==='entry'?document.getElementById('b-join'):null;
+    if(ok&&btn&&!ch)btn.textContent=t('enter');else if(G.screen==='entry'||G.screen==='closed')render();};
   let fin=false;const to=setTimeout(()=>{if(!fin){fin=true;done(false);}},8000);
-  api('/api/ping').then(r=>{if(fin)return;fin=true;clearTimeout(to);if(r&&okLang(r.lang)&&G.sess.lang!==r.lang){G.sess.lang=r.lang;if(applyLang()){G.ping=!!r.ok;render();return;}}done(!!(r&&r.ok));}).catch(()=>{if(fin)return;fin=true;clearTimeout(to);done(false);});
+  api('/api/ping').then(r=>{if(fin)return;fin=true;clearTimeout(to);let ch=false;if(r&&okLang(r.lang)&&G.sess.lang!==r.lang){G.sess.lang=r.lang;ch=applyLang();}done(!!(r&&r.ok),r,ch);}).catch(()=>{if(fin)return;fin=true;clearTimeout(to);done(false);});
 }
 
 /* ---------- Regia docente ---------- */
-const TV={ok:null,rooms:[],sess:{dur:180},err:false,upd:'',confirm:false,timer:null};
+const TV={ok:null,rooms:[],sess:{dur:180,open:false,openUntil:null},err:false,upd:'',confirm:false,timer:null,closeQ:false,busy:false,skew:0};
 const PH_LABEL={lobby:'In sala',g1:'Round 1 in corso',s1:'Esito 1',inter:'Intermezzo',g2:'Round 2 in corso',s2:'Esito 2',retro:'Retrospettiva',g3:'Round 3 in corso',s3:'Esito 3',debrief:'Debriefing'};
 function studentLink(){return location.origin+location.pathname+(Q.get('server')?'?server='+enc(Q.get('server')):'');}
 function renderTeacher(){
@@ -1090,12 +1141,37 @@ function renderTeacher(){
     app.innerHTML='<div class="panel bigerr"><h2>'+t('tvPinBad')+'</h2><p>'+t('tvPinHelp')+'</p><form class="row" id="f-pin"><input type="text" id="f-pinv" aria-label="'+t('pinL')+'" placeholder="'+t('pinL')+'" autocomplete="off"><button class="btn primary" type="submit">'+t('openReg')+'</button></form>'+
       (TV.err?'<p class="err">'+t('tvNoSrv')+'</p>':'')+'</div>';return;}
   app.innerHTML='<div class="stack tv"><div><p class="kicker">'+t('kicker')+'</p><h1>'+t('tvTitle')+'</h1></div>'+
+   '<section class="panel tvopen'+(TV.sess.open?' on':'')+'" id="tv-open" aria-live="polite">'+openBoxHTML()+'</section>'+
    '<div class="ctrl"><div class="panel"><h3>'+t('tvLink')+'</h3><div class="link"><input type="text" id="tv-link" readonly value="'+esc(studentLink())+'" aria-label="'+t('tvLink')+'"><button class="btn primary" data-act="tvcopy">'+t('tvCopy')+'</button></div></div>'+
    '<div class="panel"><h3>'+t('tvDur')+'</h3><select id="tv-dur" aria-label="'+t('tvDur')+'">'+DUR_OPTS.map(d=>'<option value="'+d+'"'+(d===TV.sess.dur?' selected':'')+'>'+clock(d)+' '+t('minutes')+'</option>').join('')+'</select><p class="small muted">'+t('tvDurNote')+'</p></div>'+
    '<div class="panel"><h3>'+t('tvLang')+'</h3><select id="tv-lang" aria-label="'+t('tvLang')+'"><option value="it"'+((TV.sess.lang||'it')==='it'?' selected':'')+'>Italiano</option><option value="en"'+(TV.sess.lang==='en'?' selected':'')+'>English</option></select><p class="small muted">'+t('tvLangNote')+'</p></div>'+
    '<div class="panel" id="tv-reset">'+resetBoxHTML()+'</div></div>'+
    '<section class="panel"><div class="row" style="justify-content:space-between"><h2>'+t('tvBoard')+'</h2><span class="small muted" id="tv-upd"></span></div><div id="tv-board" style="margin-top:10px"></div></section></div>';
   drawBoard();
+}
+/* pannello apertura/chiusura del gioco */
+function hhmm(ms){try{return new Date(ms-TV.skew).toLocaleTimeString(LANG==='it'?'it-IT':'en-GB',{hour:'2-digit',minute:'2-digit'});}catch(e){return'';}}
+function openBoxHTML(){
+  const o=!!TV.sess.open,dis=TV.busy?' disabled':'';
+  let h='<div class="tvopen-row"><div class="tvopen-st"><h3>'+t('tvGame')+'</h3><span class="pill '+(o?'on':'off')+'" id="tv-pill"><i></i>'+
+    (o?t('tvOpenOn')+(TV.sess.openUntil?' · '+t('tvClosesAt',hhmm(TV.sess.openUntil)):''):t('tvOpenOff'))+'</span></div><div class="tvopen-b">';
+  if(!o)h+='<button class="btn primary big" data-act="tvopen" id="tv-openbtn"'+dis+'>'+t('tvOpenBtn')+'</button>';
+  else if(!TV.closeQ)h+='<button class="btn danger big" data-act="tvclose" id="tv-closebtn"'+dis+'>'+t('tvCloseBtn')+'</button><button class="btn" data-act="tvextend" id="tv-extend"'+dis+'>'+t('tvExtend')+'</button>';
+  h+='</div></div>';
+  if(o&&TV.closeQ)h+='<div class="confirm"><b>'+t('tvCloseQ')+'</b><div class="row"><button class="btn danger" data-act="tvcloseyes" id="tv-closeyes"'+dis+'>'+t('tvCloseYes')+'</button><button class="btn" data-act="tvcloseno">'+t('tvCancel')+'</button></div></div>';
+  return h+'<p class="small muted">'+t('tvOpenNote')+'</p>';
+}
+function drawOpen(){
+  const el=document.getElementById('tv-open');if(!el)return;
+  if(!TV.sess.open)TV.closeQ=false;
+  el.classList.toggle('on',!!TV.sess.open);setHTML('tv-open',openBoxHTML());
+}
+function setSess(s){if(!s)return;TV.sess.open=!!s.open;TV.sess.openUntil=s.open?s.openUntil:null;drawOpen();}
+function sessOp(body,okMsg){
+  TV.busy=true;drawOpen();
+  return api('/api/session?pin='+enc(G.pin),body).then(r=>{TV.busy=false;
+    if(r&&r.ok){TV.closeQ=false;setSess(r.session);toast(okMsg);poll();} /* poll riprende (o ferma) l'aggiornamento */else{drawOpen();toast(t('err_generic')+(r&&r.error?' ('+r.error+')':''));}})
+   .catch(()=>{TV.busy=false;drawOpen();toast(t('err_net'));});
 }
 function resetBoxHTML(){
   if(!TV.confirm)return'<h3>'+t('tvReset')+'</h3><p class="small muted">'+t('tvResetNote')+'</p><div><button class="btn danger" data-act="tvreset">'+t('tvReset')+'</button></div>';
@@ -1108,16 +1184,19 @@ function checkPin(){
 function poll(){
   clearTimeout(TV.timer);
   api('/api/rooms').then(r=>{TV.rooms=(r&&r.rooms)||[];const first=!TV.loaded;TV.loaded=true;
+    if(r&&r.session){if(r.now)TV.skew=r.now-Date.now();TV.sess.open=!!r.session.open;TV.sess.openUntil=r.session.open?r.session.openUntil:null;drawOpen();}
     if(r&&r.session&&r.session.lang&&r.session.lang!==TV.sess.lang){TV.sess.lang=r.session.lang;G.sess.lang=r.session.lang;if(applyLang()){render();return;}const sl=document.getElementById('tv-lang');if(sl&&document.activeElement!==sl)sl.value=TV.sess.lang;}
     if(r&&r.session&&r.session.dur&&r.session.dur!==TV.sess.dur){TV.sess.dur=r.session.dur;const s=document.getElementById('tv-dur');if(s&&document.activeElement!==s)s.value=String(TV.sess.dur);}
     TV.err=false;TV.upd=new Date().toLocaleTimeString(LANG==='it'?'it-IT':'en-GB');drawBoard();if(first)drawBoard();})
    .catch(()=>{TV.err=true;drawBoard();})
-   .then(()=>{TV.timer=setTimeout(poll,2000);});
+   .then(()=>{clearTimeout(TV.timer);TV.timer=TV.err||TV.sess.open?setTimeout(poll,2000):null;});
 }
+/* a gioco chiuso la regia non interroga il server (Render potrebbe addormentarsi): un controllo quando la scheda torna visibile */
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&G.pin!=null&&TV.ok&&!TV.timer)poll();});
 function drawBoard(){
   setText('tv-upd',TV.err?t('tvNoSrv'):(TV.upd?t('tvTeams',TV.rooms.length)+' · '+t('tvUpd',TV.upd):''));
   const el=document.getElementById('tv-board');if(!el)return;
-  if(!TV.rooms.length){setHTML('tv-board','<p class="muted">'+t('tvNone')+'</p>');return;}
+  if(!TV.rooms.length){setHTML('tv-board','<p class="muted">'+t(TV.sess.open?'tvNone':'tvNoneClosed')+'</p>');return;}
   const pts=(x,i)=>{const r=(x.results||[])[i];return r&&r.points!=null?r.points:-Infinity;};
   const rows=TV.rooms.slice().sort((a,b)=>(pts(b,2)-pts(a,2))||(pts(b,1)-pts(a,1))||(pts(b,0)-pts(a,0))||String(a.name||a.room).localeCompare(String(b.name||b.room)));
   const best=[0,1,2].map(i=>Math.max(...rows.map(x=>pts(x,i))));
@@ -1145,6 +1224,7 @@ function act(a,el){
     case'lang':G.langOwn=LANG==='it'?'en':'it';ssSet('kg_lang',G.langOwn);applyLang();render();break;
     case'anim':G.anim=!G.anim;lsSet('kg_anim',G.anim?'1':'0');if(!G.anim)clearFx();cache.tb=null;renderTop();setText('u-anim',t(G.anim?'animOn':'animOff'));break;
     case'retry':G.ping=null;render();break;
+    case'reopen':el.disabled=true;el.textContent=t('checking');doPing();break; /* un solo controllo, su richiesta */
     case'role':{if(G.view)break;const r=el.dataset.r,h=holder(r);
       if(h===G.cid)op({a:'unrole',role:r});else if(!h)op({a:'role',role:r});else toast(t('err_taken'));break;}
     case'next':el.disabled=true;setTimeout(()=>{el.disabled=false;},1500);op({a:'next',from:R().phase});break;
@@ -1161,6 +1241,11 @@ function act(a,el){
       try{navigator.clipboard.writeText(resultsText()).then(()=>{if(msg){msg.textContent=t('copied');msg.className='small flash';}},fail);}catch(e){fail();}break;}
     case'tvcopy':{const inp=document.getElementById('tv-link'),v=studentLink(),ok=()=>toast(t('copyOk')),fail=()=>{if(inp){inp.focus();inp.select();}toast(t('copyKo'));};
       try{navigator.clipboard.writeText(v).then(ok,fail);}catch(e){fail();}break;}
+    case'tvopen':sessOp({open:true},t('tvOpened'));break;
+    case'tvclose':TV.closeQ=true;drawOpen();break;
+    case'tvcloseno':TV.closeQ=false;drawOpen();break;
+    case'tvcloseyes':sessOp({open:false},t('tvClosedDone'));break;
+    case'tvextend':sessOp({extend:1},t('tvExtended'));break;
     case'tvreset':TV.confirm=true;setHTML('tv-reset',resetBoxHTML());break;
     case'tvresetno':TV.confirm=false;setHTML('tv-reset',resetBoxHTML());break;
     case'tvresetyes':TV.confirm=false;setHTML('tv-reset',resetBoxHTML());
